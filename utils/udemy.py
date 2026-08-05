@@ -115,6 +115,27 @@ def _minutes_to_hours(minutes: int | float | None) -> float:
     return round(minutes / 60, 2)
 
 
+def is_already_enrolled(course_id: int, headers: dict) -> bool:
+    """
+    Check whether the authenticated user already owns this course, using
+    Udemy's subscribed-courses lookup — the only reliable, coupon-independent
+    way to know this (the metadata price-check does NOT apply the coupon
+    code, so it can never tell "already owned" apart from "coupon expired").
+
+    Fails OPEN (returns False) on any request error, so a lookup hiccup
+    never blocks a legitimate enrollment attempt — worst case, a course
+    you already own gets one redundant (harmless) enroll attempt instead
+    of being silently skipped.
+    """
+    url = f"{UDEMY_API_BASE}/users/me/subscribed-courses/{course_id}/"
+    try:
+        resp = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+        return resp.status_code == 200
+    except requests.exceptions.RequestException as exc:
+        logger.warning("Udemy: Ownership check failed for course_id=%s — %s", course_id, exc)
+        return False
+
+
 def _api_get(url: str, headers: dict, params: dict | None = None) -> dict | None:
     """GET request with retry logic. Returns parsed JSON or None."""
     for attempt in range(1, MAX_RETRIES + 1):
@@ -307,6 +328,17 @@ def process_udemy_link(url: str, category: str) -> tuple[str, dict]:
         logger.error("Udemy: Access token expired!")
         return STATUS_TOKEN_EXPIRED, {}
 
+    # ── Step 1.5: Ownership check (BEFORE the policy/price guardrail) ──
+    # Must run before evaluate_course_policy(), otherwise an already-owned
+    # course gets misclassified as "Coupon expired" — the metadata price
+    # never reflects ownership or the coupon, only the real enroll call
+    # does, and we don't want to reach that call at all if we already know
+    # the answer.
+    headers = _build_headers()
+    if is_already_enrolled(meta["course_id"], headers):
+        logger.info("Udemy: Already enrolled (confirmed via ownership check) — %s", meta["title"])
+        return STATUS_ALREADY_OWNED, meta
+
     # ── Step 2: Policy evaluation ─────────────────────────────
     should_enroll, reason = evaluate_course_policy(
         title          = meta["title"],
@@ -329,9 +361,8 @@ def process_udemy_link(url: str, category: str) -> tuple[str, dict]:
         meta["policy_reason"] = reason
         return STATUS_POLICY_FAIL, meta
 
-    # ── Step 3: Auto-enroll ───────────────────────────────────
-    headers = _build_headers()
-    status  = auto_enroll(meta["course_id"], coupon, headers)
+    # ── Step 3: Auto-enroll (reusing `headers` from the ownership check) ──
+    status = auto_enroll(meta["course_id"], coupon, headers)
 
     logger.info("Enroll result: %s | %s", status, meta["title"])
     return status, meta
