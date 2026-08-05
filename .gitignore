@@ -1,0 +1,45 @@
+﻿# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Pyrogram session files (contain your login - VERY sensitive)
+*.session
+*.session-journal
+
+# Secret environment file
+.env
+
+# Editor settings
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Website-polling state (local, regenerable, not sensitive but not
+# meant to be committed)
+seen_courses.json
+
+# Coupon retry queue state (local, regenerable)
+retry_queue.json
+
+# Internal/personal working docs — contain real VM IPs, timestamps, and
+# session-specific notes from development. Not meant for the public repo.
+# README.md carries a sanitized, public-facing version of the same story.
+# (Test/diagnostic scripts and the poller_main.py alternate architecture
+# ARE kept in the repo on purpose — see README.md's file structure section.)
+ORACLE_DEPLOYMENT_GUIDE.md
+PROGRESS_REPORT.md
+IMPLEMENTATION_PLAN.md
+task.md

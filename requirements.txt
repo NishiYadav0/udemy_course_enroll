@@ -1,0 +1,22 @@
+﻿# Core Telegram client
+pyrogram==2.0.106
+
+# NOTE: tgcrypto is a C-extension speed booster for Pyrogram.
+# On Windows it requires Microsoft C++ Build Tools to compile.
+# It is OPTIONAL — Pyrogram works perfectly without it.
+# On Oracle Cloud (Linux) it compiles automatically; add it back then.
+# tgcrypto
+
+# Web scraping
+requests
+beautifulsoup4
+
+# JS-rendering fallback for SPA coupon sites (e.g. findmycourse.in) that
+# inject the real Udemy link client-side — requests+BeautifulSoup alone
+# cannot see it. After `pip install -r requirements.txt`, you MUST also run:
+#   playwright install chromium
+#   playwright install-deps      (Linux servers only — system libs)
+playwright
+
+# Environment management
+python-dotenv
