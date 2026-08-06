@@ -1,4 +1,4 @@
-﻿# Core Telegram client
+# Core Telegram client
 pyrogram==2.0.106
 
 # NOTE: tgcrypto is a C-extension speed booster for Pyrogram.
@@ -11,12 +11,23 @@ pyrogram==2.0.106
 requests
 beautifulsoup4
 
+# TLS fingerprint impersonation — lets us mimic Chrome's TLS handshake
+# so Cloudflare Bot Management on Udemy's enrollment endpoint doesn't block us.
+# Without this, /subscribed-courses/ POST returns 403 regardless of cookies.
+curl_cffi>=0.7
+
 # JS-rendering fallback for SPA coupon sites (e.g. findmycourse.in) that
 # inject the real Udemy link client-side — requests+BeautifulSoup alone
 # cannot see it. After `pip install -r requirements.txt`, you MUST also run:
 #   playwright install chromium
 #   playwright install-deps      (Linux servers only — system libs)
 playwright
+
+# Hides headless-Chrome fingerprints (navigator.webdriver etc.) so Cloudflare
+# doesn't serve a challenge page during browser-based enrollment.
+# utils/enroll_browser.py imports this — without it, enrollment silently
+# degrades and usually fails on the Cloudflare interstitial.
+playwright-stealth>=2.0
 
 # Environment management
 python-dotenv

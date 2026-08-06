@@ -132,6 +132,23 @@ POPULAR_BADGES = {"bestseller", "hot_and_new", "highest_rated"}
 # "en" = English,  "hi" = Hindi
 ALLOWED_LANGUAGES: set[str] = {"en", "hi"}
 
+# Minimum star rating for a course that HAS been rated.
+MIN_RATING: float = 4.0
+
+# Brand-new courses have rating == 0.0 because nobody has reviewed them yet —
+# that is "unrated", NOT "badly rated". Free 100%-off coupons are overwhelmingly
+# used by instructors to launch brand-new courses, so rejecting rating==0 threw
+# away almost every genuine target. Set this to False to go back to the old
+# (much stricter) behaviour.
+ALLOW_UNRATED: bool = True
+
+# Practice-test / question-bank courses report estimated_content_length == 0
+# because they contain no video at all — the duration rule can never be
+# satisfied by them. When True, a 0-minute course is judged on its other
+# guardrails (language, paid, coupon, rating) and exempted from the duration
+# minimum instead of being dropped outright.
+ALLOW_ZERO_DURATION_PRACTICE_TESTS: bool = True
+
 
 # ─────────────────────────────────────────────────────────────
 # 3.  LAYER 1 — KEYWORD MATCH
@@ -213,7 +230,13 @@ def evaluate_course_policy(
         return False, f"DROPPED | Coupon expired, price=${price:.2f} | {title_display}"
 
     # ── GUARDRAIL 3: Minimum rating ───────────────────────────
-    if rating < 4.0:
+    # rating == 0.0 means "no reviews yet", not "rated badly". Brand-new
+    # courses are exactly what free coupons promote, so treat 0 separately.
+    if rating <= 0.0:
+        if not ALLOW_UNRATED:
+            return False, f"DROPPED | Unrated (new course) | {title_display}"
+        # unrated: allowed through, other guardrails still apply
+    elif rating < MIN_RATING:
         return False, f"DROPPED | Low rating {rating:.1f}/5 | {title_display}"
 
     # ── POPULARITY OVERRIDE: Bestseller / Hot & New ───────────
@@ -227,6 +250,17 @@ def evaluate_course_policy(
         return True, f"ENROLLED | Popular badge override | {title_display}"
 
     # ── DURATION RULE: Per-category minimum ──────────────────
+    # Practice-test / question-bank courses have no video, so Udemy reports
+    # estimated_content_length == 0. The duration minimum is meaningless for
+    # them and would drop 100% of them, so exempt that case explicitly.
+    if duration_hours <= 0.0:
+        if ALLOW_ZERO_DURATION_PRACTICE_TESTS:
+            return True, (
+                f"ENROLLED | Practice test / no video content "
+                f"(duration rule N/A) | {title_display}"
+            )
+        return False, f"DROPPED | No video content (0.0h) | {title_display}"
+
     min_hours = DURATION_RULES.get(category, DURATION_RULES["other"])
 
     if duration_hours >= min_hours:

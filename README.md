@@ -29,8 +29,11 @@ ScholarSync watches Telegram channels that post free Udemy coupon deals, extract
   - [4. Install Dependencies](#4-install-dependencies)
   - [5. First Run & Telegram Login](#5-first-run--telegram-login)
   - [6. Run It Forever with systemd](#6-run-it-forever-with-systemd)
-- [Verifying It's Working](#verifying-its-working)
+  - [7. Install Xvfb and the browser](#7-install-xvfb-and-the-browser)
+  - [8. Supply your Udemy session cookies](#8-supply-your-udemy-session-cookies)
+- [Testing & Verification](#testing--verification)
 - [Troubleshooting & Lessons Learned](#troubleshooting--lessons-learned)
+- [What Gets Pushed to GitHub](#what-gets-pushed-to-github)
 - [Roadmap](#roadmap)
 - [Security Notes](#security-notes)
 - [Disclaimer](#disclaimer)
@@ -62,53 +65,77 @@ Manually monitoring multiple channels all day, clicking through every link, and 
 ## How It Works
 
 ```
- Telegram Channel Post
-         │
-         ▼
- ┌───────────────────┐
- │ 1. LISTEN          │  Pyrogram/Kurigram userbot receives the live post
- └────────┬───────────┘
-          ▼
- ┌───────────────────┐
- │ 2. CATEGORIZE       │  Keyword match → data_science / coding / other / ...
- └────────┬───────────┘
-          ▼
- ┌───────────────────┐
- │ 3. SCRAPE           │  Visit the intermediary site (or read the button URL),
- │                     │  extract every Udemy coupon link on the page
- │                     │  (static fetch first, headless-browser fallback for
- │                     │  JavaScript-only pages)
- └────────┬───────────┘
-          ▼
- ┌───────────────────┐
- │ 4. METADATA          │  Query the Udemy API for price, duration, rating,
- │                     │  language, and badges
- └────────┬───────────┘
-          ▼
- ┌───────────────────┐
- │ 5. POLICY CHECK     │  Language OK? Coupon actually free? Rating ≥ 4.0?
- │                     │  Duration meets the category's minimum (or popular)?
- └────────┬───────────┘
-      pass │  fail → queued for a coupon retry (if eligible) or dropped
-          ▼
- ┌───────────────────┐
- │ 6. ENROLL            │  POST to Udemy's enrollment endpoint
- └────────┬───────────┘
-          ▼
- ┌───────────────────┐
- │ 7. NOTIFY            │  Confirmation message sent to your alert channel
- └───────────────────┘
+        ┌─────────────────────────────────────────────────────────┐
+        │  A new coupon post lands in one of your target channels  │
+        └───────────────────────────┬─────────────────────────────┘
+                                    ▼
+   ┌────────────────────┐   main.py — Kurigram receives the live update
+   │ 1  LISTEN          │   (no polling; Telegram pushes it to us)
+   └────────┬───────────┘
+            ▼
+   ┌────────────────────┐   utils/filter.py — keyword_match()
+   │ 2  CATEGORISE      │   → coding | data_science | design | … | other
+   └────────┬───────────┘
+            ▼
+   ┌────────────────────┐   utils/scraper.py
+   │ 3  RESOLVE LINK    │   Follow the intermediary site and extract every
+   └────────┬───────────┘   real Udemy coupon URL (headless fallback for JS)
+            ▼
+   ┌────────────────────┐   utils/udemy.py — get_course_metadata()
+   │ 4  METADATA        │   id · title · duration · rating · language
+   └────────┬───────────┘
+            ▼
+   ┌────────────────────┐   utils/udemy.py — get_coupon_pricing()
+   │ 5  COUPON CHECK    │   The REAL post-coupon price, coupon validity,
+   └────────┬───────────┘   and whether you already own the course
+            │
+            ├─ already owned ─────────────────► skip quietly, no alert
+            ├─ coupon dead / not $0 ──────────► EXPIRED → retry queue
+            ▼
+   ┌────────────────────┐   utils/filter.py — evaluate_course_policy()
+   │ 6  POLICY          │   language · paid · rating · duration per category
+   └────────┬───────────┘
+            │
+            ├─ fails a rule ──────────────────► DROPPED (reason logged)
+            ▼
+   ┌────────────────────┐   utils/udemy.py — auto_enroll()
+   │ 7  ENROLL (API)    │   POST /users/me/subscribed-courses/ → 403
+   └────────┬───────────┘   Expected: Udemy blocks non-browser clients
+            ▼
+   ┌────────────────────┐   utils/enroll_browser.py — browser_enroll()
+   │ 8  ENROLL (BROWSER)│   Real Chrome under Xvfb with a persistent profile,
+   └────────┬───────────┘   opens express checkout, clicks "Enroll now"
+            ▼
+   ┌────────────────────┐   Udemy replies {"status":"succeeded"}
+   │ 9  CONFIRM         │   Double-checked against the ownership API
+   └────────┬───────────┘
+            ▼
+   ┌────────────────────┐   utils/notifier.py
+   │ 10 NOTIFY          │   Success alert → your private Telegram channel
+   └────────────────────┘
+
+   Running alongside, forever:
+     • heartbeat      every 10 min — proves the listener is still alive
+     • retry worker   every 15 min — re-checks queued courses (only those
+                                     over 5 hrs; given up on after 3 hrs)
 ```
+
+**Roughly 5 seconds** from post to decision, and **about 55 seconds** for a full
+browser enrollment. Enrollments are serialised — one browser at a time — so a
+burst of posts is processed back to back rather than in parallel.
 
 ## Tech Stack
 
 | Library | Role |
 |---|---|
 | [Kurigram](https://github.com/KurimuzonAkuma/pyrogram) | Telegram MTProto client (userbot) — a maintained fork of the original Pyrogram, needed because the original stopped receiving updates for newer Telegram protocol layers |
-| [Playwright](https://playwright.dev/python/) | Headless-browser fallback for scraping JavaScript-rendered coupon pages |
+| [Playwright](https://playwright.dev/python/) | Drives a real Chrome for both JS-rendered scraping **and** the actual enrollment |
+| [playwright-stealth](https://pypi.org/project/playwright-stealth/) | Hides automation fingerprints so Cloudflare doesn't challenge the checkout page |
+| [curl_cffi](https://github.com/lexiforest/curl_cffi) | Impersonates Chrome's TLS handshake for API calls that would otherwise be flagged |
 | [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) | HTML parsing for link extraction |
-| [Requests](https://requests.readthedocs.io/) | Fast static page fetching (tried before falling back to a full browser) |
+| [Requests](https://requests.readthedocs.io/) | Fast static fetching, tried before falling back to a full browser |
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | Loads secrets from a local `.env` file |
+| **Xvfb** (system package) | Virtual display so Chrome runs as a real windowed browser on a headless server |
 
 Python **3.10+** is required (the codebase uses modern type-hint syntax like `str | None`).
 
@@ -116,27 +143,35 @@ Python **3.10+** is required (the codebase uses modern type-hint syntax like `st
 
 ```
 ScholarSync/
-├── main.py                    # Entry point — the bot itself
-├── requirements.txt           # Python dependencies
-├── .env                       # Your secrets (git-ignored, never commit this)
-├── config/.env.example        # Template showing what .env should contain
-├── utils/
-│   ├── filter.py              # Category keywords + enrollment policy rules
-│   ├── scraper.py             # Intermediary-site scraping + Udemy link extraction
-│   ├── udemy.py                # Udemy API calls (metadata fetch + enrollment)
-│   ├── notifier.py            # Alert message formatting
-│   └── retry_queue.py         # Coupon-retry queue for expired-coupon courses
-├── poller_main.py              # Alternate entry point: website-polling instead
-│                                 of Telegram (kept for reference — see
-│                                 Troubleshooting for why it wasn't the final choice)
-├── utils/poller.py            # Supporting code for poller_main.py
-├── debug_listener.py          # Diagnostic: proves whether live Telegram
-│                                 updates are actually being received
-├── test_pipeline.py           # Diagnostic: manually runs one real post through
-│                                 the full pipeline for step-by-step debugging
-└── diagnose.py                 # Diagnostic: checks channel IDs, scraper, and
-                                  Udemy token validity in one pass
+│
+├── main.py                     ★ THE BOT — entry point, run this
+├── requirements.txt            ★ Python dependencies
+├── .env                        ✗ your secrets (git-ignored — NEVER commit)
+├── config/.env.example         ★ template showing what .env needs
+│
+├── utils/                      ★ core package
+│   ├── filter.py               ·  category keywords + enrollment policy
+│   ├── scraper.py              ·  intermediary-site → real Udemy links
+│   ├── udemy.py                ·  metadata, coupon pricing, ownership, enroll
+│   ├── enroll_browser.py       ·  browser-based enrollment (the part that works)
+│   ├── notifier.py             ·  alert message formatting
+│   └── retry_queue.py          ·  re-checks courses whose coupon had died
+│
+├── apply_cookies.py            ★ helper: writes Udemy cookies into .env
+├── test_enrollment.py          ★ test one course end to end (bypasses policy)
+├── test_pipeline.py            ○ replays a real post through the whole pipeline
+├── debug_listener.py           ○ proves live Telegram updates are arriving
+├── diagnose.py                 ○ one-pass check: channels, scraper, token
+│
+├── poller_main.py              ○ abandoned architecture: poll websites instead
+└── utils/poller.py             ○   of Telegram. Kept for reference only.
+
+★ required   · part of the package   ○ optional / diagnostic   ✗ never commit
 ```
+
+**Auto-generated at runtime** (all git-ignored): `scholarsync_session.session`,
+`scholarsync.log`, `retry_queue.json`, `seen_courses.json`, `enroll_*.png`,
+`enroll_failed.html`, `~/.scholarsync_browser/`.
 
 ## Enrollment Policy
 
@@ -144,8 +179,8 @@ A course is only enrolled if it clears **every** rule below, checked in this ord
 
 1. **Language** — must be English or Hindi.
 2. **Paid course** — natively free courses are skipped (this tool targets coupon-gated paid courses).
-3. **Working coupon** — checkout price with the coupon applied must actually be $0 (not just claimed "100% off" in the post).
-4. **Rating** — must be ≥ 4.0★.
+3. **Working coupon** — the price *with the coupon actually applied* must be $0. This is checked against Udemy's real pricing endpoint, not the list price and not the claim in the post.
+4. **Rating** — must be ≥ 4.0★ **if the course has been rated at all**. Brand-new courses report `0.0`, which means *unrated*, not *bad* — and since free coupons are overwhelmingly used to launch new courses, unrated ones are allowed through (`ALLOW_UNRATED`).
 5. **Popularity override** — a "bestseller"/"hot & new"/"highest rated" badge enrolls immediately, skipping the duration check.
 6. **Minimum duration** (if not already popular):
 
@@ -159,7 +194,13 @@ A course is only enrolled if it clears **every** rule below, checked in this ord
 | Linguistics | > 10 hours |
 | Other (uncategorized) | > 8 hours |
 
-All of this is defined in one place — `utils/filter.py` — so tuning the rules to your own goals is a one-file edit.
+**Practice-test courses are exempt from rule 6.** They contain no video, so Udemy
+reports `0.0` hours and the duration rule could never be satisfied — every one of
+them would be dropped. `ALLOW_ZERO_DURATION_PRACTICE_TESTS` handles this.
+
+All of this lives in one file — `utils/filter.py` — so tuning the rules to your own
+goals is a single-file edit. Both exemptions above are boolean toggles you can flip
+back to strict behaviour.
 
 ## Getting Started
 
@@ -253,7 +294,8 @@ Wants=network-online.target
 Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ScholarSync
-ExecStart=/home/ubuntu/miniconda3/envs/scholarsync/bin/python /home/ubuntu/ScholarSync/main.py
+Environment="HOME=/home/ubuntu"
+ExecStart=/usr/bin/xvfb-run -a /home/ubuntu/miniconda3/envs/scholarsync/bin/python /home/ubuntu/ScholarSync/main.py
 Restart=always
 RestartSec=15
 StandardOutput=append:/home/ubuntu/ScholarSync/scholarsync.log
@@ -273,46 +315,256 @@ sudo systemctl start scholarsync
 
 Your bot now starts automatically on boot and restarts itself if it ever crashes — no `tmux`, no manually reopening a terminal.
 
-## Verifying It's Working
+Two details in that unit file matter:
+
+- **`xvfb-run -a`** — enrollment drives a real Chrome, which needs a display. `-a`
+  auto-picks a free display number so a restart never collides with a stale lock file.
+- **`Environment="HOME=/home/ubuntu"`** — the browser profile lives at
+  `~/.scholarsync_browser`. If `HOME` were unset, Chrome would build a fresh profile
+  every run and re-solve the Cloudflare challenge each time instead of reusing its
+  saved clearance.
+
+### 7. Install Xvfb and the browser
 
 ```bash
-sudo systemctl status scholarsync        # Is it running?
-tail -n 100 scholarsync.log              # Last 100 lines
-tail -f scholarsync.log                  # Watch live (Ctrl+C to stop watching — the bot itself keeps running)
-grep -i "keyword" scholarsync.log        # Search for a specific course/event
+sudo apt-get update
+sudo apt-get install -y xvfb
+playwright install chromium
+sudo $(which playwright) install-deps
 ```
 
-All of the above are read-only and 100% safe to run at any time — they only display the log, never modify anything.
+### 8. Supply your Udemy session cookies
 
-A healthy startup log looks like:
+Enrollment happens through Udemy's checkout page, which needs a genuinely logged-in
+browser session — not just an API token. In Chrome on your own machine, open
+**F12 → Application → Cookies → https://www.udemy.com** and copy these values:
+`access_token`, `csrftoken`, `dj_session_id`, `ud_user_jwt`, `client_id`.
+Then in the Console run `navigator.userAgent` and copy that too.
+
+Put them in a text file and let the helper write them in for you:
+
+```bash
+python apply_cookies.py "cookies.txt" --user-id YOUR_UDEMY_USER_ID --ua "PASTE_USER_AGENT"
+rm cookies.txt
 ```
-Warming up peer cache for N channel(s)...
-  ✅ Cached: <channel name>  (id=...)
-Syncing dialogs (required for live channel updates)...
-✅ Dialog sync complete — N dialog(s) synced.
-🚀 Peer cache ready — listening for new posts...
+
+> **Do not copy `cf_clearance` from your PC.** Cloudflare binds it to the IP address
+> and User-Agent that earned it, so a clearance from your home connection is void on
+> a server. The bot's browser earns its own and caches it in its profile.
+
+## Testing & Verification
+
+Every script below is safe to run while the bot is live, with one exception noted.
+
+### `test_enrollment.py` — the main test
+
+Runs one course end to end and **bypasses every policy guardrail**, so you can test
+enrollment mechanics independently of your filtering rules.
+
+```bash
+xvfb-run -a python test_enrollment.py "https://www.udemy.com/course/SLUG/?couponCode=CODE"
 ```
-followed by a "💚 Bot alive" heartbeat line every 10 minutes, and a full pipeline trace (`✉️ New post` → `🔍 Resolving...` → `Policy result: ...`) every time a monitored channel posts.
+
+It reports, in order: parsed slug/coupon → course metadata → which session cookies
+were loaded → **the real post-coupon price** → the live enrollment attempt.
+
+| Result | Meaning |
+|---|---|
+| `SUCCESS` | Enrolled. Verify on udemy.com under *My Learning*. |
+| `ALREADY ENROLLED` | You own it — pick a different course to test with. |
+| `COUPON EXPIRED / INVALID` | Udemy no longer recognises the code. Not a bug. |
+| `NOT FREE — costs $X` | Coupon is valid but only partial discount. Not a bug. |
+| `ERROR` | Genuine failure — read the log lines above it. |
+
+On failure it writes `enroll_failed.png` and `enroll_failed.html` plus a dump of every
+visible button and its enabled/disabled state.
+
+> ⚠️ Don't run this at the same time as the live service if you can help it — both
+> touch the same Pyrogram session file and you'll get `database is locked`.
+
+### `apply_cookies.py` — refresh your Udemy session
+
+Writes cookies from a text file into `.env` so you never hand-paste them.
+
+```bash
+python apply_cookies.py "cookies.txt" --user-id YOUR_UDEMY_USER_ID --ua "PASTE_YOUR_USER_AGENT"
+```
+
+Backs up the old `.env` first, replaces keys in place, and prints a masked summary.
+Delete the cookie file afterwards — it holds live credentials.
+
+### `diagnose.py` — one-pass health check
+
+```bash
+python diagnose.py
+```
+
+Confirms your channel IDs resolve, the scraper still works against the coupon sites,
+and your Udemy token is valid. Run this first whenever something feels broken.
+
+### `debug_listener.py` — is Telegram actually pushing updates?
+
+```bash
+python debug_listener.py     # stop the service first
+```
+
+Prints every raw update as it arrives. If posts appear in your channel but nothing
+prints here, the problem is the Telegram layer, not the enrollment layer.
+
+### `test_pipeline.py` — replay a real post
+
+```bash
+python test_pipeline.py      # stop the service first
+```
+
+Pulls the latest real post from each channel and walks it through keyword match →
+scraper → metadata → policy → enrollment, printing each stage. Useful when a specific
+post didn't behave as expected.
+
+### Watching the live service
+
+```bash
+sudo systemctl status scholarsync          # is it running?
+tail -f /home/ubuntu/scholarsync/scholarsync.log
+journalctl -u scholarsync -n 50 --no-pager  # crashes / startup errors
+```
 
 ## Troubleshooting & Lessons Learned
 
-Real problems hit (and fixed) while building this — kept here so the next person doesn't have to rediscover them the hard way:
+Everything below actually happened while building this. Each one cost real hours, so
+they are written down in the hope they save yours.
 
-**"The bot runs but never reacts to new posts" (silent, no errors).** Two separate causes were found, both fixed:
-- `get_chat()` alone only resolves a channel's peer info — it does *not* register the channel for live update delivery. A full `get_dialogs()` pass after login is required once per session for Telegram to actually start pushing new-message updates for that channel.
-- Even with dialog sync correct, the original `pyrogram` library (unmaintained since 2023) can silently stop receiving live updates entirely, while every other call (login, `get_dialogs`, `get_me`) still works fine — a very misleading failure mode. Switching to [Kurigram](https://github.com/KurimuzonAkuma/pyrogram), a maintained fork with the exact same import name (`pyrogram`), fixed it immediately with zero code changes elsewhere.
+### Telegram
 
-**`RuntimeError: ... attached to a different loop`.** Caused by mixing `asyncio.run()` (which creates a brand-new event loop) with a Pyrogram/Kurigram `Client` that was constructed — and bound its internal loop — earlier at module scope. Fix: use `asyncio.get_event_loop()` + `loop.run_until_complete(...)` consistently instead of `asyncio.run()`.
+**Live updates never arrive, but login works fine.**
+The original `pyrogram` package has been unmaintained since 2023 and silently stopped
+handling newer Telegram protocol layers — you can log in and call methods, but no
+push updates are delivered. Fix: `pip uninstall pyrogram && pip install kurigram`.
+Same import name, no code changes.
 
-**Coupon "Enroll Now" links inside Telegram buttons, not message text.** Some channels put the actual link only in an inline keyboard button (`message.reply_markup`), not the post's visible text. A dedicated button-URL extractor was needed alongside the text-URL extractor.
+**`RuntimeError: Task attached to a different loop`.**
+`asyncio.run()` creates a *new* event loop, while a module-level `Client` binds to the
+one that existed when it was constructed. Use
+`loop = asyncio.get_event_loop(); loop.run_until_complete(main())`.
 
-**Some pages are JavaScript-only.** A plain `requests.get()` returns an empty shell for client-side-rendered pages. A headless-browser fallback (Playwright) renders these correctly — but only launched when the fast static fetch finds nothing, to keep memory usage low on a small VM.
+**Python 3.11 won't install from the deadsnakes PPA.**
+Its package index for that Ubuntu release was empty — the giveaway was
+`d41d8cd98f00b204e9800998ecf8427e` (the MD5 of an empty file) in the PPA metadata.
+Fix: install Miniconda and `conda create -n scholarsync python=3.11`.
 
-**A PPA can silently stop supporting your OS version.** `deadsnakes` (the standard way to get newer Python on older Ubuntu) can end up serving a technically-valid-but-empty package index for a given release — `apt` reports no error, it just never finds the package. Verified by inspecting the PPA's raw `InRelease` file directly; worked around with Miniconda instead of fighting the PPA.
+### Enrollment — the seven bugs
 
-**A single scrape can miss a coupon added later.** Confirmed directly: a course page's own "last updated" timestamp was 16 minutes *after* the bot had already scraped it and found only an expired coupon. No amount of smarter parsing fixes this — it needs an actual second look later, which is what the retry queue (`utils/retry_queue.py`) does.
+These are listed in the order they were found. The first three meant **no course could
+ever enroll**, and each one masked the ones behind it.
 
-**Server clock ≠ your local time.** Cloud VMs default to UTC. Fix once with `sudo timedatectl set-timezone <Your/Timezone>`.
+**1 · The price guardrail was coupon-blind.**
+`GET /api-2.0/courses/{slug}/` ignores any coupon you pass it and only ever returns the
+list price. That price was fed into the "is it free?" check, so every genuinely-free
+course was labelled `Coupon expired, price=$19.99` and dropped before enrollment was
+even attempted. Fix: `get_coupon_pricing()` calls
+`/course-landing-components/{id}/me/?couponCode=…`, which actually evaluates the coupon
+and also reports ownership in the same round-trip.
+
+**2 · Brand-new and practice-test courses could never pass.**
+An unrated course reports `rating: 0.0`, and a practice-test course reports
+`0.0` hours because it has no video. Both were being rejected — yet those are exactly
+the courses free coupons promote. Fix: treat `0.0` rating as *unrated* rather than
+*bad*, and exempt zero-duration courses from the duration rule.
+
+**3 · The enrollment browser was silently logged out.**
+`access_token` authenticates Udemy's JSON API, which is why metadata lookups worked.
+But `/payment/checkout/` is a server-rendered Django page that needs `dj_session_id`
+and `ud_user_jwt` as well. Without them the checkout rendered
+*"1. Log in or create an account"* and could never complete.
+
+**4 · Wrong query parameter.**
+The checkout URL was built with `?discountCode=`. Udemy uses `?couponCode=`. With the
+wrong name the coupon was silently ignored and the cart stayed at full price.
+
+**5 · Cloudflare cookies cannot be copied between machines.**
+`cf_clearance` is bound to both the IP address *and* the exact User-Agent that earned
+it. A clearance from a home connection is worthless on a server — and injecting it is
+worse than sending nothing, because Cloudflare sees a clearance issued to a different
+address. Fix: run Chrome under Xvfb with a persistent profile so it earns its own, and
+stop overriding the User-Agent (a desktop Chromium advertising an Android phone is an
+instant bot signal).
+
+**6 · A completed enrollment was reported as an error.**
+Udemy's *express* checkout finalises a 100%-off order on page load — frequently with no
+button to press at all. The code searched for an "Enroll now" button, didn't find one,
+and returned `ERROR` while the course had in fact been enrolled. Compounding it, the
+diagnostic `page.screenshot()` hung on *"waiting for fonts to load"* and raised an
+uncaught timeout that crashed the whole run. Fix: the ownership API is now the deciding
+authority at every exit, and screenshots can never affect the outcome.
+
+**7 · `.first` clicked an invisible button.**
+Udemy renders ~17 buttons including hidden desktop/mobile duplicates, so
+`locator('button:has-text("Enroll now")').first` resolved to a **hidden** copy. The code
+waited for it to become visible, gave up, and moved on — while the real button sat
+untouched. Fix: find and click the button inside the page with a single
+`page.evaluate()`, choosing the first element that is genuinely visible and enabled.
+
+### Performance
+
+**A single enrollment took 14 minutes.**
+Two causes. Every Playwright locator call (`is_visible`, `is_enabled`, `inner_text`) is
+a separate round-trip to Chromium, costing several seconds each on a small VM — walking
+8 selectors × 8 elements burned ~94 seconds before the first click. And Udemy's own
+`{"status":"succeeded"}` response was being logged and then ignored, wasting another
+~24 seconds. Doing the search in one `page.evaluate()` and trusting Udemy's confirmation
+brought it to **~55 seconds**.
+
+**Playwright's normal `click()` never works on that button.**
+It fails actionability with *"waiting for element to be visible, enabled and stable"* —
+Udemy animates it, so it is never "stable". A JS click is the only reliable route.
+
+### Operational
+
+**Two enrollments at once break both.** `main.py` dispatches work through
+`run_in_executor`, so simultaneous posts land in separate threads. Both would launch
+Chrome against the same profile directory, which Chrome refuses. A `threading.Lock`
+serialises them.
+
+**Never run the sync Playwright API inside the asyncio loop.** It must be called from a
+worker thread — which `run_in_executor` provides.
+
+## What Gets Pushed to GitHub
+
+### Push these
+
+| File | Why |
+|---|---|
+| `main.py` | The bot |
+| `utils/*.py` | Core package (filter, scraper, udemy, enroll_browser, notifier, retry_queue) |
+| `apply_cookies.py` | Cookie helper — handles no secrets itself |
+| `test_enrollment.py`, `test_pipeline.py`, `debug_listener.py`, `diagnose.py` | Diagnostics; genuinely useful to anyone deploying this |
+| `poller_main.py`, `utils/poller.py` | The abandoned polling architecture, kept deliberately as a record of what didn't work |
+| `requirements.txt` | Dependencies |
+| `config/.env.example` | Placeholders only |
+| `README.md`, `.gitignore` | This file, and the rules below |
+
+### Never push these
+
+| File | Why |
+|---|---|
+| `.env`, `.env.backup-*` | **Live credentials** — Telegram API hash, Udemy session cookies |
+| `cookies.txt` / any `*cookies*.txt` | Raw cookie dumps straight from DevTools |
+| `*.session`, `*.session-journal` | **Your Telegram login.** Anyone with this file *is* you on Telegram |
+| `scholarsync.log` | Contains course titles, coupon codes, and timestamps |
+| `retry_queue.json`, `seen_courses.json` | Runtime state, regenerates itself |
+| `enroll_*.png`, `enroll_failed.html` | Debug captures of a logged-in session |
+| `ORACLE_DEPLOYMENT_GUIDE.md`, `PROGRESS_REPORT.md`, `IMPLEMENTATION_PLAN.md`, `task.md` | Personal working notes containing the real server IP |
+| `__pycache__/`, `venv/` | Build artefacts |
+
+All of the above are already listed in `.gitignore`. **Verify before your first push:**
+
+```bash
+git status --short          # nothing secret should be listed
+git ls-files | grep -E '\.env$|session|cookies'   # must print nothing
+```
+
+If that second command prints anything, stop and fix `.gitignore` before pushing —
+rewriting git history after the fact is far harder than not committing it.
 
 ## Roadmap
 

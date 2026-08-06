@@ -12,8 +12,36 @@ env/
 *.session
 *.session-journal
 
-# Secret environment file
+# Secret environment file (and the timestamped backups apply_cookies.py makes)
 .env
+.env.backup-*
+
+# Raw cookie dumps exported from DevTools — these are LIVE credentials for
+# your Udemy account. Never commit them.
+cookies.txt
+*cookies*.txt
+
+# Debug captures from the enrollment browser. These show a logged-in Udemy
+# session (account name, email, purchase history) — never commit them.
+enroll_*.png
+enroll_*.html
+checkout_state*.png
+cart_debug.png
+debug_output.txt
+
+# Chrome profile the bot builds on the server (holds its earned cf_clearance)
+.scholarsync_browser/
+
+# Scratch files
+*.tmp
+
+# One-off investigation scripts written while reverse-engineering Udemy's
+# checkout. They have hardcoded course ids / coupons / a personal user id and
+# are fully superseded by test_enrollment.py. Safe to delete entirely.
+check_cookies.py
+debug_cart.py
+debug_enroll.py
+find_endpoint.py
 
 # Editor settings
 .vscode/
