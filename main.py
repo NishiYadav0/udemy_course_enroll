@@ -27,6 +27,7 @@ Deploy on Oracle Cloud (inside tmux):
 
 import os
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 
 from pyrogram import Client, filters, idle
@@ -35,9 +36,12 @@ from pyrogram.errors import FloodWait
 from dotenv import load_dotenv
 
 from utils.filter   import keyword_match
-from utils.scraper  import resolve_udemy_links, extract_all_urls, get_page_html_and_udemy_links
+from utils.cache    import COURSE_CACHE, ENROLLED_SLUGS
+from utils.scraper  import (resolve_udemy_links, extract_all_urls,
+                            get_page_html_and_udemy_links, slug_from_url)
 from utils.udemy    import (
     process_udemy_link,
+    extract_coupon_codes_from_text,
     parse_slug_and_coupon,
     STATUS_SUCCESS,
     STATUS_ALREADY_OWNED,
@@ -79,6 +83,28 @@ logging.getLogger("pyrogram.dispatcher").setLevel(logging.CRITICAL)
 logging.getLogger("pyrogram.client").setLevel(logging.CRITICAL)
 logging.getLogger("pyrogram.session").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────
+# Bounded worker pool for all blocking work (scraping + enrolling)
+# ─────────────────────────────────────────────────────────────
+# run_in_executor(PIPELINE_EXECUTOR, ...) uses Python's DEFAULT ThreadPoolExecutor, which
+# holds (cpu_count + 4) threads — 5 on this 1 OCPU VM. Every one of those
+# threads can launch its own headless Chromium, and each costs 250-400 MB on a
+# box with 1 GB total.
+#
+# Observed live on 2026-08-07: four posts landed between 08:52:01 and 08:53:01,
+# each starting a browser. Not one scrape ever finished, and Telegram's own
+# connection was starved out:
+#     ERROR   Send failed: ConnectionResetError Connection lost
+#     WARNING Retrying "messages.GetDialogs" due to: Request timed out
+#
+# One worker means posts are processed strictly one after another. Nothing is
+# lost — later posts simply queue — and coupons remain valid for days, so a
+# minute of waiting costs nothing.
+PIPELINE_EXECUTOR = ThreadPoolExecutor(
+    max_workers=int(os.getenv("SCHOLARSYNC_WORKERS", "1")),
+    thread_name_prefix="scholarsync",
+)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -264,8 +290,12 @@ async def _retry_worker(client: Client) -> None:
                 remove_from_queue(course_url)
                 continue
 
+            # use_cache=False is essential here. The retry worker exists
+            # precisely to notice coupons ADDED to a page after we first read
+            # it, so serving it a cached copy of that earlier read would defeat
+            # the entire feature.
             html, links = await loop.run_in_executor(
-                None, get_page_html_and_udemy_links, course_url
+                PIPELINE_EXECUTOR, get_page_html_and_udemy_links, course_url, False
             )
 
             tried_coupons = list(entry.get("tried_coupons", []))
@@ -286,7 +316,7 @@ async def _retry_worker(client: Client) -> None:
             enrolled = False
             for link, coupon_code in new_links:
                 status, meta = await loop.run_in_executor(
-                    None, process_udemy_link, link, entry["category"]
+                    PIPELINE_EXECUTOR, process_udemy_link, link, entry["category"]
                 )
                 if coupon_code:
                     tried_coupons.append(coupon_code)
@@ -385,6 +415,36 @@ async def pipeline_event_processor(client: Client, message: Message) -> None:
         logger.info("%s ℹ️  Button-only post — category: [OTHER]", log_prefix)
 
     # ─────────────────────────────────────────────────────────
+    # LAYER 1.5 — PRE-SCRAPE SKIP  (cheap, runs before any browser)
+    # ─────────────────────────────────────────────────────────
+    # Your three channels mirror each other: the same course is posted to all
+    # of them within a minute or two. Scraping is the single most expensive
+    # step (~20s and ~300 MB for a headless Chromium), and until now it ran
+    # BEFORE we had any idea which course the post was about.
+    #
+    # But both coupon sites reuse Udemy's own slug in their URLs — verified
+    # 4/4 against live data — so the course can be identified straight from
+    # the link, for free:
+    #     https://freecourse.io/courses/lpi-linux-essentials-010-160-exam-questions
+    #     https://www.udemy.com/course/lpi-linux-essentials-010-160-exam-questions/
+    #
+    # If EVERY course this post points at is one we already own, there is
+    # nothing a scrape could tell us, so we stop here and save the browser.
+    #
+    # Conservative by design: slug_from_url() returns None whenever it isn't
+    # confident, and an unknown slug always falls through to the normal path.
+    # The worst case is that we fail to skip — never that we skip wrongly.
+    if intermediary_urls:
+        slugs = [slug_from_url(u) for u in intermediary_urls]
+        known = [s for s in slugs if s and ENROLLED_SLUGS.peek(s)[0]]
+        if known and len(known) == len([s for s in slugs if s]):
+            logger.info(
+                "%s ⏭️  Skipping before scrape — already own %s (saved a browser launch)",
+                log_prefix, ", ".join(known[:3]),
+            )
+            return
+
+    # ─────────────────────────────────────────────────────────
     # LAYER 2 — Web Scraper: Extract Udemy links
     # Sources: (a) URLs in post text, (b) URLs from inline buttons
     # ─────────────────────────────────────────────────────────
@@ -393,14 +453,14 @@ async def pipeline_event_processor(client: Client, message: Message) -> None:
 
     # Resolve from post text (handles intermediary URLs in text body)
     udemy_from_text: list[str] = await loop.run_in_executor(
-        None, resolve_udemy_links, post_text
+        PIPELINE_EXECUTOR, resolve_udemy_links, post_text
     ) if post_text else []
 
     # Resolve from button URLs (the Enroll button URL — this is the critical fix!)
     udemy_from_buttons: list[str] = []
     for btn_url in button_urls:
         extracted = await loop.run_in_executor(
-            None, resolve_udemy_links, btn_url
+            PIPELINE_EXECUTOR, resolve_udemy_links, btn_url
         )
         udemy_from_buttons.extend(extracted)
         # If the button URL itself is already a Udemy link, add it directly
@@ -427,13 +487,59 @@ async def pipeline_event_processor(client: Client, message: Message) -> None:
     # ─────────────────────────────────────────────────────────
     enrollment_done = False
 
+    # Coupon codes printed in the post text itself. Used as a fallback when the
+    # coupon embedded in the scraped URL turns out to be stale — coupon sites
+    # do not always refresh their links when the instructor issues a new code.
+    # Observed live: a post said "Coupon Code:- AUGFREE03" while the scraped
+    # freecourse.io link still carried the previous month's "JULFREE02".
+    post_coupons = extract_coupon_codes_from_text(post_text or "")
+    if post_coupons:
+        logger.info("%s 🎟️  Coupon codes in post text: %s", log_prefix, post_coupons)
+
     for idx, link in enumerate(udemy_links, start=1):
         logger.info("%s 📦 Link %d/%d → %s", log_prefix, idx, len(udemy_links), link[:80])
 
+        # ── Skip a course already decided in the last few minutes ──
+        # Your three channels mirror each other, so the identical course
+        # routinely arrives 2-3 times within a minute. Re-running it costs
+        # Udemy API calls and possibly a whole browser enrollment, and would
+        # emit a duplicate alert. Keyed on slug+coupon so volatile tracking
+        # params (im_ref, utm_*) don't defeat the match.
+        _slug, _coupon = parse_slug_and_coupon(link)
+
+        # (a) Do we already OWN this course? Then no coupon can matter — a
+        #     second code cannot enrol you twice. Keyed on slug alone, so this
+        #     catches a different coupon for the same course too.
+        if _slug and ENROLLED_SLUGS.peek(_slug)[0]:
+            logger.info("%s ⏭️  Already own '%s' — skipping (any coupon is moot)",
+                        log_prefix, _slug)
+            continue
+
+        # (b) Did we already DECIDE this exact course+coupon recently? Keyed on
+        #     slug::coupon, so a genuinely different coupon still gets a fair
+        #     try — the first one may simply have been dead.
+        course_key = f"{_slug}::{_coupon}"
+        _seen, _prev = COURSE_CACHE.peek(course_key)
+        if _seen:
+            logger.info("%s ⏭️  Already handled this course moments ago (%s) — skipping",
+                        log_prefix, _prev)
+            continue
+
         # Run synchronous Udemy API calls in thread pool
         status, meta = await loop.run_in_executor(
-            None, process_udemy_link, link, category
+            PIPELINE_EXECUTOR, process_udemy_link, link, category, post_coupons
         )
+
+        # Remember TERMINAL outcomes only. A transient ERROR or an expired
+        # token must stay retryable, so those are deliberately not recorded.
+        if status in (STATUS_SUCCESS, STATUS_ALREADY_OWNED,
+                      STATUS_POLICY_FAIL, STATUS_EXPIRED):
+            COURSE_CACHE.remember(course_key, status)
+
+        # Ownership is coupon-independent and long-lived — record it separately
+        # so every future post about this course is skipped before scraping.
+        if status in (STATUS_SUCCESS, STATUS_ALREADY_OWNED) and _slug:
+            ENROLLED_SLUGS.remember(_slug, status)
 
         title = meta.get("title", link[:50])
         hours = meta.get("duration_hours", 0.0)

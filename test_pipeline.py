@@ -22,6 +22,7 @@ Run:
 """
 
 import asyncio
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -29,6 +30,15 @@ from pyrogram import Client
 from pyrogram.errors import UserNotParticipant
 
 load_dotenv()
+
+# Without this the root logger sits at WARNING and every logger.info() inside
+# utils/enroll_browser.py is discarded — the enrollment step would look like a
+# silent black box exactly when you most need to see it.
+logging.basicConfig(
+    level=logging.INFO,
+    format="    | %(asctime)s %(levelname)-7s %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 API_ID   = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
@@ -179,4 +189,10 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # NOT asyncio.run(). That creates a NEW event loop, while the module-level
+    # Client above bound itself to the loop that existed when it was
+    # constructed — the mismatch raises
+    #   RuntimeError: Task ... attached to a different loop
+    # main.py and debug_listener.py already use this pattern for the same reason.
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())

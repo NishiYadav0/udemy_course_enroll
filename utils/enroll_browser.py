@@ -35,7 +35,7 @@ BROWSER_PROFILE_DIR = os.path.expanduser(
 # the SAME persistent profile directory, which Chrome refuses ("profile
 # appears to be in use"), and both enrollments would fail. Serialising costs
 # nothing: coupons stay valid for days, and a queued course waits ~55s.
-_BROWSER_LOCK = threading.Lock()
+from utils import BROWSER_LOCK as _BROWSER_LOCK  # shared with scraper.py
 
 # How long browser_enroll() will keep trying before giving up, and how long it
 # pauses between rounds. The loop exits the moment enrollment is confirmed, so
@@ -648,7 +648,7 @@ def _browser_enroll_locked(course_id: int, slug: str, coupon: str | None) -> str
                 # Poll the three success signals once a second rather than
                 # blocking on a single 12s wait_for_url that usually times out
                 # even when the order already went through.
-                for _ in range(15):
+                for _ in range(75):
                     if seen.get("succeeded"):
                         logger.info("Udemy confirmed checkout succeeded (%.0fs)",
                                     time.monotonic() - t0)

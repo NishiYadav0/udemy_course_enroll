@@ -256,6 +256,44 @@ def parse_slug_and_coupon(udemy_url: str) -> tuple[str | None, str | None]:
     return _parse_slug_and_coupon(udemy_url)
 
 
+def extract_coupon_codes_from_text(text: str) -> list[str]:
+    """
+    Pull coupon codes written in plain text in the Telegram post itself.
+
+    WHY THIS EXISTS: coupon sites do not always refresh the link on their page
+    when the instructor issues a new code. A live post read
+    "Coupon Code:- AUGFREE03", but the scraped freecourse.io link still carried
+    the previous month's "JULFREE02" — so the bot checked a stale code, saw
+    full price, and dropped a course that the post said was free.
+
+    The post text is the fresher source. These codes are tried as fallbacks
+    whenever the coupon embedded in the scraped URL fails to discount anything.
+
+    Matches forms like:
+        Coupon Code:- AUGFREE03
+        Coupon: ABC123XYZ
+        Code - 742333666DD90113E164
+    """
+    if not text:
+        return []
+
+    patterns = [
+        r"coupon\s*code\s*[:\-–]*\s*([A-Z0-9_]{4,40})",
+        r"coupon\s*[:\-–]+\s*([A-Z0-9_]{4,40})",
+        r"\bcode\s*[:\-–]+\s*([A-Z0-9_]{4,40})",
+    ]
+    found: list[str] = []
+    for pat in patterns:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            code = m.group(1).strip().upper()
+            # Filter obvious false positives from prose
+            if code in {"FREE", "NOW", "HERE", "LINK", "THIS", "ENROLL", "COURSE"}:
+                continue
+            if code not in found:
+                found.append(code)
+    return found
+
+
 def _minutes_to_hours(minutes: int | float | None) -> float:
     """Convert Udemy's estimated_content_length (minutes) to hours."""
     if not minutes:
@@ -343,14 +381,24 @@ def get_coupon_pricing(course_id: int, coupon: str | None) -> dict:
         result["already_owned"]    = bool(pdata.get("is_valid_student"))
 
         campaign = pricing.get("campaign") or {}
-        if campaign:
+        # A campaign block alone is NOT proof the coupon worked. Udemy has been
+        # observed returning a campaign with uses_remaining=None, end_time="None"
+        # and discount_percent=0 for a dead code — which made coupon_valid say
+        # True while the price stayed at full list. The only trustworthy test is
+        # whether the price actually moved.
+        really_discounted = (
+            result["list_price"] > 0
+            and result["price"] < result["list_price"] - 0.01
+        )
+        if campaign and really_discounted:
             result["coupon_valid"]    = True
             result["uses_remaining"]  = campaign.get("uses_remaining")
-            result["coupon_end_time"] = campaign.get("end_time")
+            # Udemy sometimes sends the STRING "None" rather than null here
+            end_time = campaign.get("end_time")
+            result["coupon_end_time"] = None if end_time in (None, "None") else end_time
         else:
-            # No campaign block => the coupon we sent was not honoured.
-            # (A genuinely free course legitimately has no campaign either,
-            #  which is why callers must also look at price/list_price.)
+            # Coupon not honoured. (A natively-free course legitimately has no
+            # campaign either, which is why callers also look at price.)
             result["coupon_valid"] = not bool(coupon)
 
         logger.info(
@@ -544,7 +592,8 @@ def auto_enroll(course_id: int, coupon: str | None, session=None, slug: str | No
 # ─────────────────────────────────────────────────────────────
 # Orchestrator — called by main.py for each candidate URL
 # ─────────────────────────────────────────────────────────────
-def process_udemy_link(url: str, category: str) -> tuple[str, dict]:
+def process_udemy_link(url: str, category: str,
+                       extra_coupons: list[str] | None = None) -> tuple[str, dict]:
     """
     Full pipeline for one Udemy URL:
       1. Parse slug + coupon
@@ -598,6 +647,28 @@ def process_udemy_link(url: str, category: str) -> tuple[str, dict]:
     # "Coupon expired, price=$19.99" and dropped it before enrollment.
     # course-landing-components/{id}/me/ actually evaluates the coupon.
     pricing = get_coupon_pricing(meta["course_id"], coupon)
+
+    # If the URL's coupon didn't actually discount anything, try any code the
+    # Telegram post stated in its own text. Coupon sites often serve a stale
+    # link while the post carries the current code.
+    if (
+        pricing["ok"]
+        and coupon
+        and not pricing["coupon_valid"]
+        and not pricing["already_owned"]
+        and extra_coupons
+    ):
+        for alt in extra_coupons:
+            if alt.upper() == (coupon or "").upper():
+                continue
+            logger.info("Coupon '%s' gave no discount — trying '%s' from the post text",
+                        coupon, alt)
+            alt_pricing = get_coupon_pricing(meta["course_id"], alt)
+            if alt_pricing["ok"] and alt_pricing["coupon_valid"]:
+                logger.info("Post-text coupon '%s' WORKS (%.2f → %.2f) — using it",
+                            alt, alt_pricing["list_price"], alt_pricing["price"])
+                coupon, pricing = alt, alt_pricing
+                break
 
     if pricing["ok"]:
         # Udemy's own is_valid_student flag — authoritative ownership answer

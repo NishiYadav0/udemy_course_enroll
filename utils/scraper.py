@@ -151,6 +151,27 @@ def _fetch_page_with_browser(
     wait_selector: str = "a[href*='udemy.com']",
     wait_timeout_ms: int = 8000,
 ) -> str | None:
+    """Serialised wrapper — only one Chromium may exist process-wide.
+
+    Without this, several Telegram posts arriving together each launched
+    their own browser and exhausted the 1 GB VM, so no scrape completed
+    and Telegram's connection was starved out. See utils/__init__.py.
+    """
+    from utils import BROWSER_LOCK
+    if not BROWSER_LOCK.acquire(blocking=False):
+        logger.info("Scraper: waiting for the browser to free up — %s", url)
+        BROWSER_LOCK.acquire()
+    try:
+        return _fetch_page_with_browser_locked(url, wait_selector, wait_timeout_ms)
+    finally:
+        BROWSER_LOCK.release()
+
+
+def _fetch_page_with_browser_locked(
+    url: str,
+    wait_selector: str = "a[href*='udemy.com']",
+    wait_timeout_ms: int = 8000,
+) -> str | None:
     """
     Fallback for JavaScript-rendered pages (e.g. findmycourse.in) that
     return an empty SPA shell to a plain requests.get() call — the real
@@ -218,7 +239,70 @@ def _fetch_page_with_browser(
         return None
 
 
-def get_page_html_and_udemy_links(url: str) -> tuple[str, list[str]]:
+def slug_from_url(url: str) -> str | None:
+    """
+    Best-effort course slug from ANY course URL — Udemy's or a coupon site's.
+
+    Verified against live data: both coupon sites reuse Udemy's own slug in
+    their URLs, so this identifies the course without fetching anything.
+
+        https://freecourse.io/courses/lpi-linux-essentials-010-160-exam-questions
+        https://findmycourse.in/course/governance-risk-compliance-risk-registers
+        https://www.udemy.com/course/governance-risk-compliance-risk-registers/
+                                     └──────────── same slug ────────────┘
+
+    Returns None for URLs with no meaningful last segment (homepages, listing
+    pages). A None simply means "can't pre-identify this one" — the caller then
+    falls back to the normal scrape, so a miss is never harmful.
+    """
+    if not url:
+        return None
+    cleaned = url.split("?", 1)[0].split("#", 1)[0].rstrip("/")
+    if not cleaned:
+        return None
+    segment = cleaned.rsplit("/", 1)[-1].strip().lower()
+
+    # Reject things that clearly aren't a course slug
+    if len(segment) < 8 or "." in segment:
+        return None
+    if segment in {"course", "courses", "udemy", "free", "index", "home"}:
+        return None
+    return segment
+
+
+def get_page_html_and_udemy_links(
+    url: str, use_cache: bool = True
+) -> tuple[str, list[str]]:
+    """Cached, stampede-proof wrapper around the real scrape.
+
+    Your channels mirror each other, so the same coupon page is commonly
+    requested 2-3 times within a minute. Each request used to launch its own
+    headless Chromium (~20s, ~300 MB). This wrapper makes that happen ONCE:
+
+      * a repeat within the TTL is served from cache
+      * a repeat while the first fetch is still running WAITS for it, rather
+        than starting a second browser (see utils/cache.py)
+
+    Empty results are never cached, so a failed fetch is retried properly.
+
+    use_cache=False is used by the retry worker, whose entire purpose is to
+    re-read a page in case new coupons were added since we last looked.
+    """
+    if not use_cache:
+        return _get_page_html_and_udemy_links_uncached(url)
+
+    from utils.cache import SCRAPE_CACHE
+
+    return SCRAPE_CACHE.get_or_compute(
+        key=url,
+        producer=lambda: _get_page_html_and_udemy_links_uncached(url),
+        # Only memoise a scrape that actually found Udemy links.
+        is_valid=lambda result: bool(result and result[1]),
+        label=url,
+    )
+
+
+def _get_page_html_and_udemy_links_uncached(url: str) -> tuple[str, list[str]]:
     """
     Single-fetch variant that returns BOTH the raw page HTML and the
     extracted Udemy links from it — used by utils/poller.py so it

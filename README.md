@@ -19,6 +19,7 @@ ScholarSync watches Telegram channels that post free Udemy coupon deals, extract
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Enrollment Policy](#enrollment-policy)
+- [Handling Bursts and Duplicate Posts](#handling-bursts-and-duplicate-posts)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Local Setup](#local-setup)
@@ -154,11 +155,14 @@ ScholarSync/
 │   ├── scraper.py              ·  intermediary-site → real Udemy links
 │   ├── udemy.py                ·  metadata, coupon pricing, ownership, enroll
 │   ├── enroll_browser.py       ·  browser-based enrollment (the part that works)
+│   ├── cache.py                ·  TTL + single-flight caches (burst de-duplication)
 │   ├── notifier.py             ·  alert message formatting
 │   └── retry_queue.py          ·  re-checks courses whose coupon had died
 │
 ├── apply_cookies.py            ★ helper: writes Udemy cookies into .env
+├── test_scrape.py              ★ dry run: what the scraper gets + policy verdict
 ├── test_enrollment.py          ★ test one course end to end (bypasses policy)
+├── logs.sh                     ★ read the live logs without the noise
 ├── test_pipeline.py            ○ replays a real post through the whole pipeline
 ├── debug_listener.py           ○ proves live Telegram updates are arriving
 ├── diagnose.py                 ○ one-pass check: channels, scraper, token
@@ -171,7 +175,7 @@ ScholarSync/
 
 **Auto-generated at runtime** (all git-ignored): `scholarsync_session.session`,
 `scholarsync.log`, `retry_queue.json`, `seen_courses.json`, `enroll_*.png`,
-`enroll_failed.html`, `~/.scholarsync_browser/`.
+`enroll_failed.html`, `enrolled_courses.json`, `~/.scholarsync_browser/`.
 
 ## Enrollment Policy
 
@@ -201,6 +205,102 @@ them would be dropped. `ALLOW_ZERO_DURATION_PRACTICE_TESTS` handles this.
 All of this lives in one file — `utils/filter.py` — so tuning the rules to your own
 goals is a single-file edit. Both exemptions above are boolean toggles you can flip
 back to strict behaviour.
+
+## Handling Bursts and Duplicate Posts
+
+Coupon channels do not deliver a tidy stream. They arrive in bursts, and because
+most channels mirror the same sources, **the same course commonly arrives two or
+three times within a minute**. Three concerns follow from that, and each is
+handled by a different mechanism.
+
+### 1. What happens when 100 posts arrive at once?
+
+Nothing is lost. Telegram hands every post to the handler, and each one queues on
+a **single worker thread**.
+
+That single worker is deliberate. Both coupon sites are JavaScript-rendered, so
+every scrape needs a real headless Chromium at roughly 300 MB. On a 1 GB VM the
+default thread pool — `cpu_count + 4` — would happily start five at once and
+exhaust the machine. When that happened in testing, *no* scrape completed and
+Telegram's own connection was starved until it dropped.
+
+```python
+PIPELINE_EXECUTOR = ThreadPoolExecutor(max_workers=1)   # override: SCHOLARSYNC_WORKERS
+```
+
+Serialising costs nothing real: coupons stay valid for days, so a post waiting a
+minute for its turn loses nothing.
+
+### 2. The same course arriving from every channel
+
+Three layers of de-duplication, applied cheapest-first:
+
+| Layer | Runs | Keyed on | Prevents |
+|---|---|---|---|
+| **Pre-scrape skip** | Before any browser | course slug | Scraping a course you already own |
+| **Scrape cache** | During scraping | page URL | 3 browsers for 1 page (15 min) |
+| **Course cache** | After scraping | `slug::coupon` | Re-deciding the same offer (10 min) |
+
+The pre-scrape skip works because both coupon sites reuse Udemy's own slug in
+their URLs:
+
+```
+https://freecourse.io/courses/lpi-linux-essentials-010-160-exam-questions
+https://www.udemy.com/course/lpi-linux-essentials-010-160-exam-questions/
+                             └────────────── same slug ──────────────┘
+```
+
+So a post can be identified — and dropped — **before** a browser starts.
+
+The scrape cache also collapses *concurrent* duplicates. A plain cache does not
+help when two channels post the same URL 16 seconds apart, because nothing is
+cached yet and both callers miss. A per-key lock makes the second caller wait for
+the first and reuse its result ("single-flight").
+
+Measured on a realistic burst — 3 channels × 10 posts, 6 shared:
+
+| | Browser launches | Wall clock |
+|---|---|---|
+| Without de-duplication | 30 | 19.0 min |
+| With de-duplication | 18 | **10.7 min** |
+
+### 3. "Will it ever skip a course it should have taken?"
+
+No — and this is the property the design is built around.
+
+The two caches use **different keys**, and that distinction is what keeps every
+genuine opportunity alive:
+
+- `COURSE_CACHE` is keyed on **`slug::coupon`**. A different coupon is a
+  different key, so it always gets its own attempt. If the first code was dead,
+  the second is still tried.
+- `ENROLLED_SLUGS` is keyed on **`slug` alone**. Once a course is owned, every
+  coupon for it is moot — a second code cannot enrol you twice.
+
+A course is therefore skipped outright **only when Udemy itself confirmed
+ownership** (a completed enrollment, or `is_valid_student = true`). A dropped or
+expired course is never pre-skipped and still reaches the retry queue.
+
+| Situation | Behaviour |
+|---|---|
+| Same course, same coupon, 3 channels | 1 processed, 2 skipped |
+| Same course, **different** coupons, not enrolled | **All tried** |
+| Different coupons, second one works | First tried, second enrols, third skipped |
+| Reposted next day, never enrolled | Fully reconsidered |
+| Reposted next day, already owned | Skipped instantly, no browser |
+
+### Ownership is remembered across restarts
+
+Course ownership is the one fact here that never changes — you cannot un-own a
+Udemy course — so it is persisted to `enrolled_courses.json` (git-ignored) rather
+than being forgotten on every restart.
+
+It is written **only after Udemy confirms** ownership, never on a guess, and
+entries carry a 30-day expiry so that anything written in error heals itself
+instead of blocking a course permanently. The store also fails open: a missing,
+corrupt or unwritable file logs a warning and starts empty, and the bot simply
+re-learns ownership the slower, correct way. **A cache problem can never stop
+enrollment.**
 
 ## Getting Started
 

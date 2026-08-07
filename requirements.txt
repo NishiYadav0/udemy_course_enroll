@@ -1,5 +1,19 @@
-# Core Telegram client
-pyrogram==2.0.106
+# Core Telegram client — MUST be kurigram, NOT pyrogram.
+#
+# DO NOT change this back to `pyrogram`. The original package has been
+# unmaintained since 2023 and silently stopped handling newer Telegram
+# protocol layers. The failure is deceptive: login succeeds, get_chat_history()
+# succeeds, every API call you make by hand succeeds — but LIVE PUSH UPDATES
+# are never delivered, so the bot sits at "listening for new posts..." forever
+# while posts pour into the channel.
+#
+# kurigram is a maintained drop-in fork and still imports as `pyrogram`,
+# so no code changes are needed anywhere.
+#
+# This regressed once already: requirements.txt still pinned pyrogram, so a
+# routine `pip install -r requirements.txt` reinstalled it over kurigram and
+# the bot went deaf. If you ever see that happen again, this line is why.
+kurigram
 
 # NOTE: tgcrypto is a C-extension speed booster for Pyrogram.
 # On Windows it requires Microsoft C++ Build Tools to compile.

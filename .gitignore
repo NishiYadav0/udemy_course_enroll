@@ -71,3 +71,7 @@ ORACLE_DEPLOYMENT_GUIDE.md
 PROGRESS_REPORT.md
 IMPLEMENTATION_PLAN.md
 task.md
+
+# Persistent record of courses you already own (personal enrollment history,
+# regenerates itself, and self-heals after 30 days)
+enrolled_courses.json

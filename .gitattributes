@@ -1,0 +1,30 @@
+# Line-ending rules
+#
+# This project is edited on Windows but RUNS on a Linux VM, and files are moved
+# across with WinSCP. Windows line endings (CRLF) break things on that side:
+#
+#   * a .sh script with CRLF fails immediately with
+#         $'\r': command not found
+#   * a Python file with a CRLF shebang fails the same way when executed directly
+#
+# Forcing LF for code keeps every file valid on the server no matter which
+# machine it was last touched on.
+
+# Default: let Git normalise text files in the repository
+* text=auto
+
+# Must always be LF — these run on Linux
+*.sh   text eol=lf
+*.py   text eol=lf
+*.env  text eol=lf
+
+# Docs are fine either way, but keep them consistent
+*.md   text eol=lf
+*.txt  text eol=lf
+*.json text eol=lf
+
+# Never touch binary files
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.session binary
