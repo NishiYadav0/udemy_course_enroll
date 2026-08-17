@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Logs — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-12 col-md-4">
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search log text&hellip;">
+      </div>
+      <div class="col-6 col-md-3">
+        <select name="category" class="form-select">
+          <option value="">All categories</option>
+          {% for c in categories %}
+            <option value="{{ c }}" {{ 'selected' if c==category }}>{{ c|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select name="limit" class="form-select">
+          {% for n in [100, 300, 500, 1000, 2000] %}
+            <option value="{{ n }}" {{ 'selected' if n==limit }}>{{ n }} lines</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-search"></i> Filter</button>
+        <a href="{{ url_for('logs') }}" class="btn btn-outline-secondary">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span>{{ results|length }} line(s) &middot; <span class="text-muted fw-normal">newest first</span></span>
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-muted small">Re-reads the live file on every load — filters stay applied on refresh</span>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="syLogsAutoRefresh">
+        <label class="form-check-label small" for="syLogsAutoRefresh">Auto-refresh (5s)</label>
+      </div>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="font-monospace small p-3" style="max-height:70vh; overflow-y:auto; white-space:pre-wrap;">
+      {% for r in results|reverse %}<div class="border-start border-3 border-{{ color(r.category) }} ps-2 mb-1">{{ r.text }}</div>{% else %}<div class="text-muted p-3">No matching lines.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Off by default here (unlike the Dashboard) — reloading while you're
+  // mid-read of a log is more disruptive than useful, so this is opt-in.
+  // Whatever search/category/line-count you had selected survives the
+  // reload since it's just re-requesting the exact same URL.
+  //
+  // On the 5s interval: no real server-load concern for a single-admin
+  // panel — each reload is one small file-read + render, same as clicking
+  // refresh by hand, just automated. The only genuine tradeoff is that
+  // this does a FULL page reload (not a partial/AJAX update), so if
+  // you're mid-scroll reading an older section, it resets your scroll
+  // position every 5 seconds. Fine for "glance and watch," annoying for
+  // "reading closely" — turn it off for the latter.
+  (function () {
+    const STORAGE_KEY = "sy_logs_autorefresh";
+    const toggle = document.getElementById("syLogsAutoRefresh");
+    const INTERVAL_MS = 5000;
+
+    toggle.checked = localStorage.getItem(STORAGE_KEY) === "1";
+    toggle.addEventListener("change", () => {
+      localStorage.setItem(STORAGE_KEY, toggle.checked ? "1" : "0");
+    });
+
+    if (toggle.checked) {
+      setTimeout(() => location.reload(), INTERVAL_MS);
+    }
+  })();
+</script>
+{% endblock %}

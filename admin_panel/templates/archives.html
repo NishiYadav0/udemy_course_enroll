@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Archives — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i>
+  Rotated log archives, compressed by logrotate. Each one is a frozen snapshot —
+  its content never changes once written. Archives are deleted automatically after
+  14 days (or sooner if more than 5 pile up) — see ADMIN_PANEL_GUIDE.md &sect; 7.
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header"><i class="bi bi-archive"></i> Available archives</div>
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Source</th>
+          <th>Size</th>
+          <th>Rotated</th>
+          <th>Expires</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in archives %}
+        <tr>
+          <td class="font-monospace small">{{ a.name }}</td>
+          <td><span class="badge bg-secondary">{{ a.source }}</span></td>
+          <td>{{ a.size_mb }} MB</td>
+          <td>{{ a.modified }} <span class="text-muted small">({{ a.age_days }}d ago)</span></td>
+          <td>
+            {% if a.expires_in_days <= 3 %}
+              <span class="text-danger small"><i class="bi bi-clock-history"></i> in {{ a.expires_in_days }}d</span>
+            {% else %}
+              <span class="text-muted small">in {{ a.expires_in_days }}d</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('archive_view', file=a.name) }}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-eye"></i> View
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-muted p-4 text-center">
+            No archives yet. The first rotation happens within 3 days automatically,
+            or sooner if the live log reaches 25MB — check back later, or see the
+            live <a href="{{ url_for('logs') }}">Logs</a> page for what's happening right now.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

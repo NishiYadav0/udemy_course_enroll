@@ -68,6 +68,7 @@ retry_queue.json
 # (Test/diagnostic scripts and the poller_main.py alternate architecture
 # ARE kept in the repo on purpose — see README.md's file structure section.)
 ORACLE_DEPLOYMENT_GUIDE.md
+ADMIN_PANEL_GUIDE.md
 PROGRESS_REPORT.md
 IMPLEMENTATION_PLAN.md
 task.md
@@ -75,3 +76,13 @@ task.md
 # Persistent record of courses you already own (personal enrollment history,
 # regenerates itself, and self-heals after 30 days)
 enrolled_courses.json
+
+# ---- Admin panel (admin_panel/) ----
+# Nothing new to add here — the patterns above already cover it, since
+# gitignore patterns without a leading slash match at any depth:
+#   .env              -> also catches admin_panel/.env  (SECRET_KEY + password hash)
+#   .env.backup-*      -> also catches admin_panel/.env.backup-*
+#   venv/              -> also catches admin_panel/venv/
+#   *.log              -> also catches admin_panel/audit.log
+# admin_panel/.env.example and admin_panel/requirements.txt are safe and
+# meant to be committed — only the real, secret-filled .env is excluded.

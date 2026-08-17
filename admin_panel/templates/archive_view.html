@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ archive.name }} — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <a href="{{ url_for('archives') }}" class="text-decoration-none small d-block mb-1">
+      <i class="bi bi-arrow-left"></i> Back to archives
+    </a>
+    <h5 class="mb-0 font-monospace">{{ archive.name }}</h5>
+  </div>
+  <span class="text-muted small">
+    <i class="bi bi-lock"></i> Frozen snapshot &mdash; rotated {{ archive.modified }} &middot; {{ archive.size_mb }} MB
+  </span>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <input type="hidden" name="file" value="{{ archive.name }}">
+      <div class="col-12 col-md-4">
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search log text&hellip;">
+      </div>
+      <div class="col-6 col-md-3">
+        <select name="category" class="form-select">
+          <option value="">All categories</option>
+          {% for c in categories %}
+            <option value="{{ c }}" {{ 'selected' if c==category }}>{{ c|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select name="limit" class="form-select">
+          {% for n in [100, 300, 500, 1000, 3000] %}
+            <option value="{{ n }}" {{ 'selected' if n==limit }}>{{ n }} lines</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-search"></i> Filter</button>
+        <a href="{{ url_for('archive_view', file=archive.name) }}" class="btn btn-outline-secondary">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between">
+    <span>{{ results|length }} line(s) &middot; <span class="text-muted fw-normal">newest first</span></span>
+    <span class="text-muted small">No auto-refresh here &mdash; an archive never changes once written</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="font-monospace small p-3" style="max-height:70vh; overflow-y:auto; white-space:pre-wrap;">
+      {% for r in results|reverse %}<div class="border-start border-3 border-{{ color(r.category) }} ps-2 mb-1">{{ r.text }}</div>{% else %}<div class="text-muted p-3">No matching lines in this archive.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

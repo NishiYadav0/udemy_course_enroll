@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Commands — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<p class="text-muted">Reference only &mdash; nothing on this page executes anything. Run these over SSH.</p>
+
+{% macro cmdblock(title, icon, items) %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header"><i class="bi {{ icon }}"></i> {{ title }}</div>
+  <ul class="list-group list-group-flush">
+    {% for label, cmd in items %}
+    <li class="list-group-item">
+      <div class="small text-muted">{{ label }}</div>
+      <code>{{ cmd }}</code>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endmacro %}
+
+{{ cmdblock("Service control", "bi-play-circle", [
+  ("Check if the bot is running", "sudo systemctl status " ~ service_name),
+  ("Restart the bot", "sudo systemctl restart " ~ service_name),
+  ("Stop the bot", "sudo systemctl stop " ~ service_name),
+  ("Restart the admin panel itself", "sudo systemctl restart scholarsync-panel"),
+]) }}
+
+{{ cmdblock("Logs", "bi-terminal", [
+  ("Live filtered feed", "./logs.sh"),
+  ("Full unfiltered tail", "./logs.sh all"),
+  ("Recent enrollments", "./logs.sh enrolled"),
+  ("Recent drops", "./logs.sh dropped"),
+  ("Recent errors", "./logs.sh errors"),
+  ("Compact block to paste into chat", "./logs.sh share"),
+  ("Raw tail", "tail -f scholarsync.log"),
+]) }}
+
+{{ cmdblock("Testing", "bi-flask", [
+  ("Real enrollment test (needs Xvfb)", 'xvfb-run -a python test_enrollment.py "<course url with ?couponCode=>"'),
+  ("Full pipeline dry run", "python test_pipeline.py"),
+  ("Scrape + policy check, no enrollment", "python test_scrape.py <url>"),
+]) }}
+
+{{ cmdblock("Kurigram / Pyrogram fix (if the bot goes deaf)", "bi-exclamation-triangle", [
+  ("Confirm which is installed", "python -c \"import pyrogram; print(pyrogram.__version__)\""),
+  ("Force the correct one back in", "pip uninstall -y kurigram pyrogram && pip install --force-reinstall kurigram"),
+]) }}
+
+{{ cmdblock("Git safety check before pushing", "bi-github", [
+  ("Confirm no secret files are tracked (should print nothing except known false positives like apply_cookies.py)",
+   'git ls-files | grep -E "\\.env$|session|cookies|enrolled_courses"'),
+]) }}
+{% endblock %}

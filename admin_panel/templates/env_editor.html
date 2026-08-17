@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Environment — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i>
+  Values are masked. Tick <strong>Change</strong> next to a key and type the new value to replace it.
+  Keys not present here can't be created from this page &mdash; edit <code>.env</code> over SSH if you need a brand-new key.
+  Saving does <strong>not</strong> restart the bot automatically &mdash; do that from the Dashboard afterwards.
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header"><i class="bi bi-key"></i> Bot credentials (.env)</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('env_update') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <table class="table align-middle">
+        <thead>
+          <tr><th style="width:28%">Key</th><th style="width:22%">Current value</th><th>New value</th></tr>
+        </thead>
+        <tbody>
+          {% for k in keys %}
+          <tr>
+            <td class="font-monospace">{{ k.key }}</td>
+            <td class="font-monospace text-muted">{{ k.masked_value }}</td>
+            <td>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">
+                  <input class="form-check-input mt-0" type="checkbox" name="enable_{{ k.key }}" title="Change this value">
+                </span>
+                <input type="text" class="form-control" name="value_{{ k.key }}"
+                       placeholder="New value for {{ k.key }}" autocomplete="off">
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">No keys found — is SCHOLARSYNC_ROOT set correctly in admin_panel/.env?</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button type="submit" class="btn btn-primary"
+              onclick="return confirm('Save the checked changes? Remember to restart the service afterwards.');">
+        <i class="bi bi-save"></i> Save changes
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

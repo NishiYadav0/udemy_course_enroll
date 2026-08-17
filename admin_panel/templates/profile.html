@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Profile — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header"><i class="bi bi-person-circle"></i> Your account</div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="mb-3">
+            <label class="form-label">Current password <span class="text-danger">*</span></label>
+            <input type="password" class="form-control" name="current_password" required>
+            <div class="form-text">Required to confirm any change below.</div>
+          </div>
+
+          <hr>
+
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" name="new_username" value="{{ username }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">New password</label>
+            <input type="password" class="form-control" name="new_password" autocomplete="new-password">
+            <div class="form-text">Leave blank to keep your current password. Minimum 12 characters.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm new password</label>
+            <input type="password" class="form-control" name="confirm_password" autocomplete="new-password">
+          </div>
+
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

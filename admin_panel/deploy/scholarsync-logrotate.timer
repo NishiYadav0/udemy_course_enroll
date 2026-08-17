@@ -1,0 +1,14 @@
+[Unit]
+Description=Run scholarsync-logrotate.service every 3 days
+
+[Timer]
+# First run 10 minutes after boot (so a VM reboot doesn't need to wait up
+# to 3 days for the first rotation), then every 3 days after that.
+OnBootSec=10min
+OnUnitActiveSec=3d
+# If the VM was off when a run was due, run it soon after boot instead of
+# silently skipping — keeps the 3-day cadence honest across reboots.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

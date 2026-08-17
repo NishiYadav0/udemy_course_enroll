@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Audit — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="alert alert-secondary">
+  <i class="bi bi-shield-check"></i>
+  Every login and every environment/profile change is recorded here &mdash; who, when, from what IP, and which
+  key names were touched. Secret <em>values</em> are never written to this file.
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header">Recent activity</div>
+  <div class="card-body p-0">
+    <div class="font-monospace small p-3" style="max-height:70vh; overflow-y:auto; white-space:pre-wrap;">
+      {% for line in entries %}<div class="mb-1">{{ line }}</div>{% else %}<div class="text-muted">No activity recorded yet.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

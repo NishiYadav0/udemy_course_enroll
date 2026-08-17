@@ -1,0 +1,38 @@
+[Unit]
+Description=ScholarSync Admin Panel (Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/scholarsync
+Environment="HOME=/home/ubuntu"
+# venv/bin FIRST (so the right python/gunicorn is picked up), but the normal
+# system paths must stay too — service_control.py shells out to `sudo`,
+# `ps`, and `free` by bare name, and systemd's PATH is NOT inherited from
+# your shell. An earlier version of this line set PATH to venv/bin ONLY,
+# which made every one of those calls fail with "No such file or directory"
+# — that's why the Dashboard showed "Service status: UNKNOWN" and
+# "Memory: Not available" even though gunicorn itself was running fine.
+Environment="PATH=/home/ubuntu/scholarsync/admin_panel/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/ubuntu/scholarsync/admin_panel/venv/bin/gunicorn --workers 1 --threads 2 --timeout 30 --bind 127.0.0.1:8000 admin_panel.wsgi:app
+Restart=on-failure
+RestartSec=5
+
+# NoNewPrivileges=true was here as "hardening" but it directly contradicts
+# this app's one real privileged action: calling `sudo systemctl ...` to
+# check/restart the bot. NoNewPrivileges blocks EXACTLY the setuid mechanism
+# sudo needs to escalate from `ubuntu` to `root` — the kernel refuses it
+# outright, which is why you saw:
+#   "sudo: effective uid is not 0, is /usr/bin/sudo on a file system with
+#    the 'nosuid' option set..."
+# That message is systemd's sandboxing talking, not a real filesystem or
+# sudoers problem. Removed. The narrowly-scoped sudoers rule (exactly 4
+# commands, nothing else, see deploy/sudoers_scholarsync_panel) is what
+# actually limits what this service can do as root — that protection does
+# not depend on NoNewPrivileges at all.
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

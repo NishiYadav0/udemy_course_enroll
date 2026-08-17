@@ -1,0 +1,12 @@
+# Admin panel dependencies — kept separate from the bot's own requirements.txt
+# so a panel dependency change can never accidentally affect the bot process.
+#
+# Deliberately minimal: no ORM, no database driver, no task queue. This is a
+# single-admin, file-backed panel on a 1GB VM — every extra dependency is
+# extra RAM and extra attack surface for no real benefit here.
+
+flask>=3.0
+flask-login>=0.6
+flask-wtf>=1.2
+python-dotenv>=1.0
+gunicorn>=22.0

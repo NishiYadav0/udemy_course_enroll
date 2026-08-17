@@ -1,0 +1,279 @@
+/* ScholarSync Admin — design system
+   A deliberately original palette (deep slate + indigo accent), not a copy
+   of any specific brand's trade dress — professional/premium in the same
+   spirit without borrowing anyone else's identity. */
+
+:root {
+  --sy-bg: #eef1f6;
+  --sy-surface: #ffffff;
+  --sy-ink: #1b2430;
+  --sy-muted: #64748b;
+
+  --sy-sidebar: #101c33;
+  --sy-sidebar-hover: #1b2c4d;
+  --sy-sidebar-active: #24406e;
+  --sy-sidebar-text: #c7d1e3;
+  --sy-sidebar-text-active: #ffffff;
+
+  --sy-accent: #3457d5;
+  --sy-accent-hover: #2a46b3;
+  --sy-accent-soft: #eaefff;
+
+  --sy-radius: 14px;
+  --sy-radius-sm: 10px;
+  --sy-shadow: 0 2px 10px rgba(16, 28, 51, 0.06), 0 1px 2px rgba(16, 28, 51, 0.08);
+  --sy-shadow-lg: 0 12px 32px rgba(16, 28, 51, 0.16);
+}
+
+body {
+  background-color: var(--sy-bg);
+  color: var(--sy-ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- Top bar ---------- */
+.sy-topbar {
+  background: var(--sy-sidebar);
+  color: #fff;
+  box-shadow: var(--sy-shadow);
+}
+.sy-topbar .sy-brand {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+.sy-topbar .sy-brand small {
+  color: var(--sy-sidebar-text);
+  font-weight: 400;
+}
+.sy-toggle-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #fff;
+  border-radius: var(--sy-radius-sm);
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: background 0.15s ease;
+}
+.sy-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* ---------- Top bar user menu ---------- */
+.sy-user-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: background 0.15s ease;
+}
+.sy-user-btn:hover, .sy-user-btn:focus {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.sy-user-btn::after {
+  margin-left: 0.5rem;
+  opacity: 0.6;
+}
+.sy-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sy-accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.sy-user-menu {
+  border: none;
+  border-radius: var(--sy-radius-sm);
+  box-shadow: var(--sy-shadow-lg);
+  padding: 0.4rem 0;
+  min-width: 220px;
+}
+.sy-user-menu .dropdown-item {
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+}
+.sy-user-menu .dropdown-item:hover {
+  background: var(--sy-accent-soft);
+}
+.sy-user-menu .dropdown-item.text-danger:hover {
+  background: #fdecec;
+}
+
+/* ---------- Offcanvas sidebar ---------- */
+.offcanvas.sy-sidebar {
+  background: var(--sy-sidebar);
+  color: var(--sy-sidebar-text);
+  width: 280px;
+}
+.sy-sidebar .offcanvas-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sy-sidebar .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+.sy-sidebar .nav-link {
+  color: var(--sy-sidebar-text);
+  border-radius: var(--sy-radius-sm);
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sy-sidebar .nav-link i {
+  font-size: 1.05rem;
+  width: 1.3rem;
+  text-align: center;
+}
+.sy-sidebar .nav-link:hover {
+  background: var(--sy-sidebar-hover);
+  color: #fff;
+}
+.sy-sidebar .nav-link.active {
+  background: var(--sy-sidebar-active);
+  color: var(--sy-sidebar-text-active);
+}
+.sy-sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+/* ---------- Cards ---------- */
+.card {
+  border: none;
+  border-radius: var(--sy-radius);
+  box-shadow: var(--sy-shadow);
+}
+.card-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(16, 28, 51, 0.06);
+  font-weight: 600;
+}
+.table td, .table th {
+  vertical-align: middle;
+}
+code {
+  word-break: break-all;
+}
+
+/* ---------- Buttons ---------- */
+.btn-primary {
+  background-color: var(--sy-accent);
+  border-color: var(--sy-accent);
+}
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--sy-accent-hover);
+  border-color: var(--sy-accent-hover);
+}
+.btn-outline-primary {
+  color: var(--sy-accent);
+  border-color: var(--sy-accent);
+}
+.btn-outline-primary:hover {
+  background-color: var(--sy-accent);
+  border-color: var(--sy-accent);
+}
+
+/* ---------- Status pill helper ---------- */
+.sy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.sy-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ---------- Login page ---------- */
+.sy-login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+}
+.sy-login-brand-panel {
+  background: radial-gradient(circle at top left, #1b2c4d 0%, var(--sy-sidebar) 60%, #0a1526 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem 3rem;
+  position: relative;
+  overflow: hidden;
+}
+.sy-login-brand-panel::before {
+  content: "";
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: rgba(52, 87, 213, 0.25);
+  top: -160px;
+  right: -160px;
+}
+.sy-login-brand-panel .sy-brand-icon {
+  font-size: 2.6rem;
+  margin-bottom: 1rem;
+}
+.sy-login-form-panel {
+  background: var(--sy-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+}
+.sy-login-card {
+  width: 100%;
+  max-width: 380px;
+}
+.sy-login-card .form-control {
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--sy-radius-sm);
+  border-color: #dde3ee;
+}
+.sy-login-card .form-control:focus {
+  border-color: var(--sy-accent);
+  box-shadow: 0 0 0 0.2rem rgba(52, 87, 213, 0.15);
+}
+.sy-login-card .btn-primary {
+  padding: 0.65rem;
+  border-radius: var(--sy-radius-sm);
+  font-weight: 600;
+}
+.sy-feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.sy-feature-row i {
+  font-size: 1.1rem;
+  margin-top: 0.15rem;
+  color: #9db2e8;
+}

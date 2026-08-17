@@ -1,0 +1,42 @@
+# Install with:
+#   sudo cp logrotate_scholarsync /etc/logrotate.d/scholarsync
+#   sudo logrotate -d /etc/logrotate.d/scholarsync   (dry run)
+#
+# POLICY: rotate into a compressed .gz archive every 3 days, or sooner if
+# the live file hits 25MB. Keep archives for up to 2 weeks, then delete.
+#
+# Why there's no `daily`/`weekly` keyword here: logrotate has no native
+# "every 3 days" period — only hourly/daily/weekly/monthly/yearly. So the
+# 3-day cadence is NOT handled by this file at all. It's handled by
+# scholarsync-logrotate.timer (a systemd timer, installed separately),
+# which runs `logrotate -f` (force) every 3 days regardless of size.
+#
+# What THIS file controls: the safety-net trigger that fires between those
+# forced runs if the log grows fast — `size 25M` with no period keyword
+# means "rotate when it reaches 25MB," full stop, no calendar involved.
+# `maxage 14` is what actually deletes archives after 2 weeks — this is
+# independent of `rotate` (a count cap) and enforced on age alone.
+
+/home/ubuntu/scholarsync/scholarsync.log {
+    su ubuntu ubuntu
+    size 25M
+    rotate 5
+    maxage 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+
+/home/ubuntu/scholarsync/admin_panel/audit.log {
+    su ubuntu ubuntu
+    size 25M
+    rotate 5
+    maxage 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

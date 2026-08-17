@@ -1,0 +1,24 @@
+# Install with:  sudo visudo -cf sudoers_scholarsync_panel   (checks syntax)
+#                sudo cp sudoers_scholarsync_panel /etc/sudoers.d/scholarsync-panel
+#                sudo chmod 440 /etc/sudoers.d/scholarsync-panel
+#
+# Grants the panel (running as `ubuntu`) exactly four commands on exactly
+# one service, without a password. NOTHING else. If you ever need to check
+# what the panel is allowed to do, this file is the complete answer.
+#
+# Confirm the systemctl path matches your VM first:  which systemctl
+# (it's /usr/bin/systemctl on Ubuntu 20.04 by default)
+
+# NOTE: an earlier version of this line whitelisted
+#   systemctl show scholarsync --property=ActiveState,SubState,...
+# Unescaped commas inside a whitelisted command's arguments are invalid
+# sudoers grammar (commas separate list items in this file's own syntax),
+# which made `visudo -c` fail with "syntax error near line 15" and aborted
+# setup_panel.sh before this file got installed. Fixed by whitelisting the
+# plain command with no arguments — the app now parses the full (longer)
+# output in Python instead of asking systemctl to filter it.
+
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl status scholarsync
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl is-active scholarsync
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart scholarsync
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl show scholarsync

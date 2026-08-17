@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Log in — ScholarSync Admin{% endblock %}
+{% block content %}
+<div class="row g-0 sy-login-wrapper mx-n3 mx-md-n4 my-n4">
+
+  <div class="col-lg-6 sy-login-brand-panel d-none d-lg-flex">
+    <div class="sy-brand-icon"><i class="bi bi-mortarboard-fill"></i></div>
+    <h2 class="fw-bold mb-2">ScholarSync</h2>
+    <p class="text-white-50 mb-0" style="max-width: 26rem;">
+      One place to watch the bot, read what it's doing, and rotate a credential
+      the moment it expires &mdash; without opening a terminal.
+    </p>
+
+    <div class="sy-feature-row">
+      <i class="bi bi-speedometer2"></i>
+      <div>
+        <div class="fw-semibold">Live status</div>
+        <div class="text-white-50 small">Service health, memory, and the last enrollment at a glance.</div>
+      </div>
+    </div>
+    <div class="sy-feature-row">
+      <i class="bi bi-terminal"></i>
+      <div>
+        <div class="fw-semibold">Searchable logs</div>
+        <div class="text-white-50 small">Filter by enrolled, dropped, errors, or Cloudflare &mdash; no SSH needed.</div>
+      </div>
+    </div>
+    <div class="sy-feature-row">
+      <i class="bi bi-shield-lock"></i>
+      <div>
+        <div class="fw-semibold">Guarded credential rotation</div>
+        <div class="text-white-50 small">Masked values, automatic backups, and a full audit trail.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 sy-login-form-panel">
+    <div class="sy-login-card">
+      <div class="d-lg-none text-center mb-4">
+        <i class="bi bi-mortarboard-fill" style="font-size:2.2rem; color: var(--sy-accent);"></i>
+        <h4 class="mt-2 mb-0 fw-bold">ScholarSync</h4>
+      </div>
+      <h4 class="fw-bold mb-1">Welcome back</h4>
+      <p class="text-muted mb-4">Sign in to manage your bot.</p>
+
+      {% if locked %}
+        <div class="alert alert-danger">
+          <i class="bi bi-shield-exclamation"></i> Too many failed attempts. Please wait before trying again.
+        </div>
+      {% else %}
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Username</label>
+          <input type="text" class="form-control" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="mb-4">
+          <label class="form-label small fw-semibold">Password</label>
+          <input type="password" class="form-control" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-box-arrow-in-right"></i> Log in
+        </button>
+      </form>
+      {% endif %}
+
+      <p class="text-center text-muted small mt-4 mb-0">
+        <i class="bi bi-geo-alt"></i> This panel controls a live bot and its Udemy credentials. Access is restricted by IP.
+      </p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

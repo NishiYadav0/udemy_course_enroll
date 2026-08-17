@@ -32,6 +32,7 @@ ScholarSync watches Telegram channels that post free Udemy coupon deals, extract
   - [6. Run It Forever with systemd](#6-run-it-forever-with-systemd)
   - [7. Install Xvfb and the browser](#7-install-xvfb-and-the-browser)
   - [8. Supply your Udemy session cookies](#8-supply-your-udemy-session-cookies)
+- [Admin Panel](#admin-panel)
 - [Testing & Verification](#testing--verification)
 - [Troubleshooting & Lessons Learned](#troubleshooting--lessons-learned)
 - [What Gets Pushed to GitHub](#what-gets-pushed-to-github)
@@ -138,6 +139,17 @@ burst of posts is processed back to back rather than in parallel.
 | [python-dotenv](https://github.com/theskumar/python-dotenv) | Loads secrets from a local `.env` file |
 | **Xvfb** (system package) | Virtual display so Chrome runs as a real windowed browser on a headless server |
 
+**Admin panel only** (separate `admin_panel/requirements.txt`, not needed to run the bot itself):
+
+| Library | Role |
+|---|---|
+| [Flask](https://flask.palletsprojects.com/) | Server-rendered web app framework |
+| [Flask-Login](https://flask-login.readthedocs.io/) | Session-based authentication |
+| [Flask-WTF](https://flask-wtf.readthedocs.io/) | CSRF protection on every form |
+| [Gunicorn](https://gunicorn.org/) | Production WSGI server, run behind nginx |
+| **Nginx** (system package) | Reverse proxy, HTTPS termination, IP allowlisting |
+| [Bootstrap 5](https://getbootstrap.com/) (CDN) | UI styling — no build step, no npm |
+
 Python **3.10+** is required (the codebase uses modern type-hint syntax like `str | None`).
 
 ## Project Structure
@@ -168,7 +180,22 @@ ScholarSync/
 ├── diagnose.py                 ○ one-pass check: channels, scraper, token
 │
 ├── poller_main.py              ○ abandoned architecture: poll websites instead
-└── utils/poller.py             ○   of Telegram. Kept for reference only.
+├── utils/poller.py             ○   of Telegram. Kept for reference only.
+│
+└── admin_panel/                ○ optional web dashboard — see Admin Panel section
+    ├── app.py                  ·  Flask routes (dashboard, logs, archives, env editor, auth)
+    ├── env_editor.py           ·  masked, format-preserving .env read/write
+    ├── service_control.py      ·  systemctl wrappers (narrow sudo only)
+    ├── log_viewer.py           ·  live-log search + .gz archive listing/reading
+    ├── auth.py / audit.py      ·  login throttling + change history
+    ├── set_password.py         ★ first-time setup / password reset
+    ├── requirements.txt        ★ panel's own dependencies (separate from the bot's)
+    ├── .env                    ✗ panel's own secrets (git-ignored — NEVER commit)
+    ├── audit.log               ✗ change history (git-ignored, no secret values in it)
+    ├── templates/, static/     ·  Bootstrap 5 UI (dashboard, logs, archives, env editor,
+    │                              commands, audit, profile, login)
+    └── deploy/                 ·  systemd units (panel + logrotate timer), nginx config,
+                                    sudoers rule, logrotate policy, setup script
 
 ★ required   · part of the package   ○ optional / diagnostic   ✗ never commit
 ```
@@ -452,6 +479,56 @@ rm cookies.txt
 > and User-Agent that earned it, so a clearance from your home connection is void on
 > a server. The bot's browser earns its own and caches it in its profile.
 
+## Admin Panel
+
+A browser-based dashboard (`admin_panel/`) for operating the bot without SSH: is it
+running, what did it just do, and a controlled way to rotate `.env` values (like
+`UDEMY_ACCESS_TOKEN`) when a session expires. Built with Flask (server-rendered,
+deliberately no separate JS frontend) and Bootstrap 5, served through Gunicorn behind
+an nginx reverse proxy with HTTPS and IP allowlisting — a fully separate web
+application from the bot, running as its own systemd service.
+
+**Pages** (left-hand collapsible sidebar, all requiring login):
+
+| Page | What it's for |
+|---|---|
+| Dashboard | Service status (active/inactive, uptime, restart count), RAM + swap usage, bot process memory, current log file size, last ENROLLED/DROPPED/ERROR line, one-click restart. Auto-refreshes every 5 seconds (toggle). |
+| Logs | Searchable, filterable by category (enrolled / dropped / errors / warnings / retries / Cloudflare / posts) — the same categories `logs.sh` uses. Newest lines shown first. Optional 5-second auto-refresh. |
+| Archives | Browse rotated `.gz` log files before they expire — same search/filter UI as Logs, but read-only and frozen (an archive's content never changes once written). |
+| Environment | Edit existing `.env` keys only (never creates new ones). Values are always masked (e.g. `AbCd******xyz`); saving backs up the old file first and requires a manual restart to take effect. |
+| Commands | Read-only reference for the SSH commands you'd otherwise have to remember — service control, logs, testing, the kurigram fix, the git safety check. |
+| Audit | Every login and every environment/profile change — who, when, from what IP, and which key names (never values). |
+| Profile | Change your own username/password, with your current password required to confirm. |
+
+**Log lifecycle.** The live log grows until it's rotated into a compressed `.gz`
+archive every 3 days (or sooner if it hits 25MB), enforced by a systemd timer since
+logrotate itself has no native "every N days" period. Archives are kept for 14 days,
+then deleted automatically — browsable on the Archives page the whole time they exist.
+
+**Security model, in brief** — the full reasoning is in `ADMIN_PANEL_GUIDE.md`:
+
+- HTTPS only, single admin account with a scrypt-hashed password (never plaintext)
+- `.env` values are always masked in the UI; saving only replaces existing keys,
+  never creates new ones, and every write is preceded by a timestamped backup
+- Access restricted at **three** independent layers: the Oracle Cloud Security List,
+  the VM's own `iptables`, and nginx's own IP allowlist — a stranger with the GitHub
+  source code still can't get a single packet to the login page from outside your IP
+- The panel's only power over the bot is running `systemctl status/restart` on the
+  `scholarsync` service specifically, via a narrowly-scoped, auditable sudo rule —
+  nothing else on the VM is reachable from it
+- CSRF protection on every form, login throttling after repeated failures (5 attempts
+  → 15-minute lockout per IP), and a full audit trail of logins and changes (key
+  names only — values are never logged, anywhere)
+- The Archives page only ever opens a file whose exact name it just generated itself
+  moments earlier — never a path built from the request — closing off path traversal
+- Runs as its own systemd service (`scholarsync-panel`), fully independent from the
+  bot's — a panel issue can never take the pipeline down
+
+**Deployment** is a separate step from deploying the bot itself, covered end-to-end
+(including the Oracle Cloud Security List rule, the swap-file prerequisite, and the
+guided `setup_panel.sh` script) in `ADMIN_PANEL_GUIDE.md`, which is git-ignored since
+it documents the real VM IP — see that file directly on your machine or the VM.
+
 ## Testing & Verification
 
 Every script below is safe to run while the bot is live, with one exception noted.
@@ -642,19 +719,21 @@ worker thread — which `run_in_executor` provides.
 | `requirements.txt` | Dependencies |
 | `config/.env.example` | Placeholders only |
 | `README.md`, `.gitignore` | This file, and the rules below |
+| `admin_panel/*.py`, `templates/`, `static/`, `deploy/*` | Admin panel source — no secrets in any of it |
+| `admin_panel/requirements.txt`, `admin_panel/.env.example` | Panel dependencies and a placeholders-only template |
 
 ### Never push these
 
 | File | Why |
 |---|---|
-| `.env`, `.env.backup-*` | **Live credentials** — Telegram API hash, Udemy session cookies |
+| `.env`, `.env.backup-*` | **Live credentials** — Telegram API hash, Udemy session cookies (this pattern also catches `admin_panel/.env`) |
 | `cookies.txt` / any `*cookies*.txt` | Raw cookie dumps straight from DevTools |
 | `*.session`, `*.session-journal` | **Your Telegram login.** Anyone with this file *is* you on Telegram |
-| `scholarsync.log` | Contains course titles, coupon codes, and timestamps |
+| `scholarsync.log`, `admin_panel/audit.log` | Contains course titles, coupon codes, timestamps, and admin activity |
 | `retry_queue.json`, `seen_courses.json` | Runtime state, regenerates itself |
 | `enroll_*.png`, `enroll_failed.html` | Debug captures of a logged-in session |
-| `ORACLE_DEPLOYMENT_GUIDE.md`, `PROGRESS_REPORT.md`, `IMPLEMENTATION_PLAN.md`, `task.md` | Personal working notes containing the real server IP |
-| `__pycache__/`, `venv/` | Build artefacts |
+| `ORACLE_DEPLOYMENT_GUIDE.md`, `ADMIN_PANEL_GUIDE.md`, `PROGRESS_REPORT.md`, `IMPLEMENTATION_PLAN.md`, `task.md` | Personal working notes containing the real server IP |
+| `__pycache__/`, `venv/` (also catches `admin_panel/venv/`) | Build artefacts |
 
 All of the above are already listed in `.gitignore`. **Verify before your first push:**
 
@@ -669,7 +748,8 @@ rewriting git history after the fact is far harder than not committing it.
 ## Roadmap
 
 - [ ] Configurable retry-queue interval/duration via `.env`
-- [ ] Optional web dashboard for enrollment history
+- [x] Web-based admin dashboard (status, logs, env editor, service control) — see [Admin Panel](#admin-panel)
+- [ ] Real domain + Let's Encrypt HTTPS for the admin panel (currently self-signed)
 - [ ] Support additional coupon-aggregator source sites
 - [ ] Per-category alert formatting/emoji customization
 

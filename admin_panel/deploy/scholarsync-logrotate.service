@@ -1,0 +1,10 @@
+[Unit]
+Description=Force-rotate ScholarSync logs (paired with scholarsync-logrotate.timer)
+
+[Service]
+Type=oneshot
+# -f = force a rotation regardless of size/age — this is what actually
+# gives the "every 3 days" cadence, since logrotate itself has no native
+# 3-day period. The 25MB size trigger in logrotate_scholarsync still
+# applies independently between these forced runs, as a faster safety net.
+ExecStart=/usr/sbin/logrotate -f /etc/logrotate.d/scholarsync
