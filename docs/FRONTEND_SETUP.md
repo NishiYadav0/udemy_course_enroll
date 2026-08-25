@@ -94,4 +94,30 @@ of courses actually get enrolled.
 
 ---
 
+## Appendix — Every `.env` key explained
+
+The wizard writes all of these for you the first time, but you'll see this
+exact list again on the panel's **Environment** page any time you need to
+rotate one later (e.g. after a Udemy cookie expires). Here's what each key
+actually is and exactly where it comes from:
+
+| Key | What it is | Where to get it | Required? |
+|---|---|---|---|
+| `API_ID` | Your Telegram app's API ID — a plain number | [my.telegram.org](https://my.telegram.org) → **API development tools** → create an app | ✅ Yes |
+| `API_HASH` | Your Telegram app's API Hash — a 32-character string | Same page as API_ID, right next to it | ✅ Yes |
+| `TARGET_CHANNELS` | Numeric chat IDs (comma-separated) of the Telegram channels ScholarSync watches for coupon posts | Set automatically by the wizard's **Channels** step — type `@channelname`, it resolves the real ID for you | ✅ Yes |
+| `ALERT_CHANNEL_ID` | Numeric chat ID of your own private channel/group where enrollment confirmations get sent | Same wizard step, second box — create a private channel first if you don't have one | ✅ Yes |
+| `UDEMY_ACCESS_TOKEN` | Udemy's `access_token` cookie — authenticates API calls (course lookups, ownership checks) | udemy.com (logged in) → **F12 → Application → Cookies → https://www.udemy.com** → `access_token` | ✅ Yes |
+| `UDEMY_CSRF_TOKEN` | Udemy's `csrftoken` cookie — required for any write/POST request Udemy's API makes | Same DevTools panel → `csrftoken` | ✅ Yes |
+| `UDEMY_DJ_SESSION_ID` | Udemy's `dj_session_id` cookie — without it the checkout page renders as logged-out, no matter how valid the access token is | Same → `dj_session_id` | ✅ Yes |
+| `UDEMY_USER_JWT` | Udemy's `ud_user_jwt` cookie — also required specifically for the checkout page to recognise you | Same → `ud_user_jwt` | ✅ Yes |
+| `UDEMY_CLIENT_ID` | Udemy's `client_id` cookie | Same → `client_id` | Optional |
+| `UDEMY_USER_ID` | Your numeric Udemy account ID | Same → `ud_cache_user` | Optional |
+| `UDEMY_CF_CLEARANCE` | Cloudflare's `cf_clearance` cookie — helps the enrollment browser get past Cloudflare's bot check on the checkout page | Same → `cf_clearance`. **Must come from the same machine/IP** that will actually run the bot — a clearance captured on your home PC won't work on the VM | Optional, recommended |
+| `UDEMY_CF_BM` | Cloudflare's `__cf_bm` cookie — short-lived, expires roughly every 30 minutes | Same → `__cf_bm` | Optional |
+| `UDEMY_USER_AGENT` | The exact User-Agent string of the browser you captured the cookies above in | Same browser, DevTools **Console** tab → type `navigator.userAgent` → copy the result exactly | Optional, but required if you set `UDEMY_CF_CLEARANCE` — it's checked character-for-character |
+| `POLL_INTERVAL_SECONDS` | How often (in seconds) the alternate *website-polling* mode checks for new coupons | Only read by `poller_main.py`, the abandoned polling-based architecture kept for reference — the real bot (`main.py`) listens to Telegram live and ignores this entirely. Safe to leave at its default | Not used in normal operation |
+
+---
+
 [← Back to README](../README.md) · [← Chapter 1 — Deployment](DEPLOYMENT_GUIDE.md)
