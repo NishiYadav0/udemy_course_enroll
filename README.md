@@ -1,8 +1,8 @@
-# 🎓 ScholarSync
+# 🎓 UdemySync
 
 **Automatic Udemy coupon discovery, filtering, and enrollment — powered by Telegram.**
 
-ScholarSync watches Telegram channels that post free Udemy coupon deals, extracts the real enrollment link (which is usually hidden behind an intermediary "coupon aggregator" website), checks the course against a configurable policy (category, duration, rating, language), and — if it passes — automatically claims it on your Udemy account and sends you a confirmation. All day, every day, with no manual checking.
+UdemySync watches Telegram channels that post free Udemy coupon deals, extracts the real enrollment link (which is usually hidden behind an intermediary "coupon aggregator" website), checks the course against a configurable policy (category, duration, rating, language), and — if it passes — automatically claims it on your Udemy account and sends you a confirmation. All day, every day, with no manual checking.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey)
@@ -14,7 +14,7 @@ ScholarSync watches Telegram channels that post free Udemy coupon deals, extract
 ## Table of Contents
 
 - [The Problem](#the-problem)
-- [What ScholarSync Does](#what-scholarsync-does)
+- [What UdemySync Does](#what-udemysync-does)
 - [How It Works](#how-it-works)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
@@ -67,9 +67,9 @@ Telegram has dozens of channels that post 100%-off Udemy coupons daily — but t
 2. Coupons expire fast — often within hours, sometimes minutes — so by the time you check a post, the discount may already be gone.
 3. Most posted courses are irrelevant filler (marketing courses, unrelated hobby content) buried among the handful that actually matter for a specific goal — in this project's case, courses relevant to an IIT Madras BS Data Science curriculum.
 
-Manually monitoring multiple channels all day, clicking through every link, and judging every course on the spot isn't realistic. ScholarSync automates the entire chain: **detect → extract → evaluate → enroll → notify.**
+Manually monitoring multiple channels all day, clicking through every link, and judging every course on the spot isn't realistic. UdemySync automates the entire chain: **detect → extract → evaluate → enroll → notify.**
 
-## What ScholarSync Does
+## What UdemySync Does
 
 - 📡 **Listens live** to any number of Telegram channels (as your own account, via a "userbot") — no bot API, no channel admin permissions needed, just being a member.
 - 🔗 **Extracts the real Udemy link** from post text, inline buttons ("Enroll Now"), or by visiting the linked intermediary page and scraping it — including JavaScript-rendered pages via a headless browser fallback.

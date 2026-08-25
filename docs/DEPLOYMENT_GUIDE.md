@@ -117,7 +117,7 @@ Create `/etc/systemd/system/scholarsync.service`:
 
 ```ini
 [Unit]
-Description=ScholarSync - Telegram Udemy Coupon Auto-Enroll Bot
+Description=UdemySync - Telegram Udemy Coupon Auto-Enroll Bot
 After=network-online.target
 Wants=network-online.target
 

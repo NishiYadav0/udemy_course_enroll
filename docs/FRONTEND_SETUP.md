@@ -37,7 +37,7 @@ ask for over an SSH terminal, just as a web form instead.
 ## 2.4 Add your target channels
 
 **Setup → 2. Pick channels**. You must already be a member of whichever
-channels you want ScholarSync to watch (join them in the Telegram app first
+channels you want UdemySync to watch (join them in the Telegram app first
 if you haven't). Type each channel's `@username` (or paste its `t.me/...`
 link) into the "Add a target channel" box — the panel looks up its real
 numeric chat ID for you automatically (main.py requires the numeric ID
@@ -48,7 +48,7 @@ want monitored.
 
 Same page, second box. This should be **your own private channel or group**
 (create one in Telegram first if you don't have one) — not one of the coupon
-channels above. ScholarSync posts enrollment confirmations here, so it needs
+channels above. UdemySync posts enrollment confirmations here, so it needs
 to be somewhere only you (or people you trust) can see.
 
 ## 2.6 Add your Udemy account
@@ -105,7 +105,7 @@ actually is and exactly where it comes from:
 |---|---|---|---|
 | `API_ID` | Your Telegram app's API ID — a plain number | [my.telegram.org](https://my.telegram.org) → **API development tools** → create an app | ✅ Yes |
 | `API_HASH` | Your Telegram app's API Hash — a 32-character string | Same page as API_ID, right next to it | ✅ Yes |
-| `TARGET_CHANNELS` | Numeric chat IDs (comma-separated) of the Telegram channels ScholarSync watches for coupon posts | Set automatically by the wizard's **Channels** step — type `@channelname`, it resolves the real ID for you | ✅ Yes |
+| `TARGET_CHANNELS` | Numeric chat IDs (comma-separated) of the Telegram channels UdemySync watches for coupon posts | Set automatically by the wizard's **Channels** step — type `@channelname`, it resolves the real ID for you | ✅ Yes |
 | `ALERT_CHANNEL_ID` | Numeric chat ID of your own private channel/group where enrollment confirmations get sent | Same wizard step, second box — create a private channel first if you don't have one | ✅ Yes |
 | `UDEMY_ACCESS_TOKEN` | Udemy's `access_token` cookie — authenticates API calls (course lookups, ownership checks) | udemy.com (logged in) → **F12 → Application → Cookies → https://www.udemy.com** → `access_token` | ✅ Yes |
 | `UDEMY_CSRF_TOKEN` | Udemy's `csrftoken` cookie — required for any write/POST request Udemy's API makes | Same DevTools panel → `csrftoken` | ✅ Yes |
