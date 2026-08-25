@@ -63,6 +63,7 @@
       <a class="nav-link {{ 'active' if request.endpoint=='logs' }}" href="{{ url_for('logs') }}"><i class="bi bi-terminal"></i> Logs</a>
       <a class="nav-link {{ 'active' if request.endpoint in ['archives', 'archive_view'] }}" href="{{ url_for('archives') }}"><i class="bi bi-archive"></i> Archives</a>
       <a class="nav-link {{ 'active' if request.endpoint=='env_view' }}" href="{{ url_for('env_view') }}"><i class="bi bi-key"></i> Environment</a>
+      <a class="nav-link {{ 'active' if request.endpoint=='categories' }}" href="{{ url_for('categories') }}"><i class="bi bi-tags"></i> Categories</a>
       <a class="nav-link {{ 'active' if request.endpoint=='commands' }}" href="{{ url_for('commands') }}"><i class="bi bi-list-check"></i> Commands</a>
       <a class="nav-link {{ 'active' if request.endpoint=='audit_view' }}" href="{{ url_for('audit_view') }}"><i class="bi bi-shield-check"></i> Audit</a>
     </nav>
@@ -75,6 +76,16 @@
 {% endif %}
 
 <main class="container-fluid flex-grow-1 py-4 px-md-4">
+  {% if current_user.is_authenticated and not bot_configured and request.endpoint and not request.endpoint.startswith('setup') %}
+    <div class="row">
+      <div class="col-12 col-xl-10 mx-auto">
+        <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span><i class="bi bi-cone-striped"></i> The bot isn't configured yet — Telegram login, channels, and Udemy credentials are still needed.</span>
+          <a href="{{ url_for('setup_intro') }}" class="btn btn-sm btn-warning">Finish setup</a>
+        </div>
+      </div>
+    </div>
+  {% endif %}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="row">

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Connect Telegram — Admin{% endblock %}
+{% block content %}
+
+<div class="row">
+  <div class="col-12 col-lg-6 mx-auto">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-telegram"></i> Step 1 &middot; Log in to Telegram</h5>
+        <p class="text-muted mb-4">
+          This bot works by logging in as your own Telegram account (a "userbot") so it can
+          silently watch channels you're already a member of.
+        </p>
+
+        <div class="alert alert-info small">
+          <i class="bi bi-info-circle"></i> Need an API ID and API Hash? Get them free, in under a
+          minute, at <a href="https://my.telegram.org" target="_blank" rel="noopener">my.telegram.org</a>
+          &rarr; API development tools.
+        </div>
+
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">API ID</label>
+            <input type="text" class="form-control" name="api_id" inputmode="numeric" placeholder="e.g. 12345678" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">API Hash</label>
+            <input type="text" class="form-control font-monospace" name="api_hash" placeholder="32-character string" required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label small fw-semibold">Phone number</label>
+            <input type="text" class="form-control" name="phone" placeholder="+91XXXXXXXXXX (international format)" required>
+            <div class="form-text">The same number you use to log in to Telegram normally.</div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-send"></i> Send me a login code
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

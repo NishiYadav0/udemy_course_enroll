@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Create admin account — ScholarSync Admin{% endblock %}
+{% block content %}
+<div class="row g-0 sy-login-wrapper mx-n3 mx-md-n4 my-n4">
+
+  <div class="col-lg-6 sy-login-brand-panel d-flex">
+    <div class="sy-brand-icon"><i class="bi bi-mortarboard-fill"></i></div>
+    <h2 class="fw-bold mb-2">Welcome to ScholarSync</h2>
+    <p class="text-white-50 mb-0" style="max-width: 26rem;">
+      This looks like a fresh deploy &mdash; nobody has claimed this panel yet.
+      Create your own admin account below, then we'll walk you through
+      connecting Telegram and Udemy. No SSH required from here on.
+    </p>
+    <div class="sy-feature-row">
+      <i class="bi bi-1-circle"></i>
+      <div>
+        <div class="fw-semibold">Create your account</div>
+        <div class="text-white-50 small">This page only works once &mdash; it locks itself the moment it's used.</div>
+      </div>
+    </div>
+    <div class="sy-feature-row">
+      <i class="bi bi-2-circle"></i>
+      <div>
+        <div class="fw-semibold">Log in to Telegram</div>
+        <div class="text-white-50 small">Phone number, the code Telegram sends you, done.</div>
+      </div>
+    </div>
+    <div class="sy-feature-row">
+      <i class="bi bi-3-circle"></i>
+      <div>
+        <div class="fw-semibold">Pick channels &amp; add Udemy</div>
+        <div class="text-white-50 small">Type channel names, paste cookies, and the bot launches itself.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 sy-login-form-panel">
+    <div class="sy-login-card">
+      <h4 class="fw-bold mb-1">Create your admin account</h4>
+      <p class="text-muted mb-4">This is the only person who can log in to this panel.</p>
+
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Username</label>
+          <input type="text" class="form-control" name="username" value="{{ username or 'admin' }}" autocomplete="username" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Password</label>
+          <input type="password" class="form-control" name="password" autocomplete="new-password" minlength="12" required>
+          <div class="form-text">At least 12 characters.</div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label small fw-semibold">Confirm password</label>
+          <input type="password" class="form-control" name="confirm_password" autocomplete="new-password" minlength="12" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-shield-lock"></i> Create account &amp; continue
+        </button>
+      </form>
+
+      <p class="text-center text-muted small mt-4 mb-0">
+        <i class="bi bi-info-circle"></i> Already have an account? <a href="{{ url_for('login') }}">Log in instead</a>.
+      </p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

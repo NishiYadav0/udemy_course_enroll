@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Add Udemy account — Admin{% endblock %}
+{% block content %}
+
+<div class="row">
+  <div class="col-12 col-lg-7 mx-auto">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-mortarboard"></i> Step 3 &middot; Add your Udemy account</h5>
+        <p class="text-muted mb-3">
+          Enrollment needs a genuinely logged-in Udemy session, not just an API key. Log in to
+          <strong>udemy.com</strong> in Chrome, open <strong>F12 &rarr; Application &rarr; Cookies
+          &rarr; https://www.udemy.com</strong>, and copy each value below.
+        </p>
+        <div class="alert alert-info small">
+          <i class="bi bi-info-circle"></i> The four marked <strong>required</strong> must all be
+          filled in or enrollment can't complete. The rest help with Cloudflare and can be added later
+          from the Environment page if you skip them now.
+        </div>
+
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="row g-3 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">access_token <span class="text-danger">*</span></label>
+              <input type="text" class="form-control font-monospace" name="access_token" value="{{ values.access_token or '' }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">csrftoken <span class="text-danger">*</span></label>
+              <input type="text" class="form-control font-monospace" name="csrf_token" value="{{ values.csrf_token or '' }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">dj_session_id <span class="text-danger">*</span></label>
+              <input type="text" class="form-control font-monospace" name="dj_session_id" value="{{ values.dj_session_id or '' }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">ud_user_jwt <span class="text-danger">*</span></label>
+              <input type="text" class="form-control font-monospace" name="user_jwt" value="{{ values.user_jwt or '' }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">client_id</label>
+              <input type="text" class="form-control font-monospace" name="client_id" value="{{ values.client_id or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">ud_cache_user (your numeric user id)</label>
+              <input type="text" class="form-control font-monospace" name="user_id" value="{{ values.user_id or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">cf_clearance</label>
+              <input type="text" class="form-control font-monospace" name="cf_clearance" value="{{ values.cf_clearance or '' }}">
+              <div class="form-text">Must come from the SAME machine you'll deploy on — see README.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">__cf_bm</label>
+              <input type="text" class="form-control font-monospace" name="cf_bm" value="{{ values.cf_bm or '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">User-Agent</label>
+              <input type="text" class="form-control font-monospace" name="user_agent" value="{{ values.user_agent or '' }}" placeholder="Console: navigator.userAgent">
+              <div class="form-text">Must match the browser cf_clearance was captured in, character-for-character.</div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 mt-3">
+            Continue to review <i class="bi bi-arrow-right"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

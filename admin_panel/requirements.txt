@@ -10,3 +10,10 @@ flask-login>=0.6
 flask-wtf>=1.2
 python-dotenv>=1.0
 gunicorn>=22.0
+
+# Needed ONLY for the first-run setup wizard's Telegram login step
+# (admin_panel/telegram_login.py) — a separate install from the bot's own
+# kurigram in the bot's venv (root requirements.txt). Same package, same
+# "kurigram not pyrogram" rule applies here too: the maintained fork is
+# required for the login handshake to actually receive Telegram's replies.
+kurigram

@@ -12,15 +12,26 @@ Layer 4 : evaluate_course_policy()
     Applies all guardrails and per-category duration rules to live course
     metadata fetched from the Udemy API. Returns True only when the course
     should be auto-enrolled.
+
+CATEGORY_MATRICES / DURATION_RULES are admin-editable (2026-08-25) via the
+panel's Categories page, which writes config/category_policy.json. The
+dicts below (_DEFAULT_*) are the built-in fallback this project has always
+shipped with — used as-is on a fresh deploy where nobody has customised
+anything yet, AND as the safety net if the JSON file is ever missing or
+malformed, so a bad edit can never take category matching down. See
+_load_policy() below for exactly how the two are merged.
 """
 
+import json
+import os
+
 # ─────────────────────────────────────────────────────────────
-# 1.  CATEGORY KEYWORD MATRICES
+# 1.  CATEGORY KEYWORD MATRICES (built-in defaults)
 #     Keys match DURATION_RULES below.  Order matters: the first
 #     category whose keywords match wins, so keep the most
 #     specific / highest-priority categories first.
 # ─────────────────────────────────────────────────────────────
-CATEGORY_MATRICES: dict[str, list[str]] = {
+_DEFAULT_CATEGORY_MATRICES: dict[str, list[str]] = {
 
     # ── Primary track: IIT Madras BS Data Science curriculum ──
     "data_science": [
@@ -111,11 +122,11 @@ CATEGORY_MATRICES: dict[str, list[str]] = {
 }
 
 # ─────────────────────────────────────────────────────────────
-# 2.  DURATION RULES (minimum hours per category)
+# 2.  DURATION RULES (minimum hours per category, built-in defaults)
 #     "other" is the catch-all fallback for posts that don't
 #     match any named category.
 # ─────────────────────────────────────────────────────────────
-DURATION_RULES: dict[str, float] = {
+_DEFAULT_DURATION_RULES: dict[str, float] = {
     "data_science":      3.0,
     "coding":            3.0,
     "ethical_hacking":   3.0,
@@ -124,6 +135,49 @@ DURATION_RULES: dict[str, float] = {
     "linguistics":       10.0,
     "other":             8.0,   # raised from 5.0 — uncategorized posts now need > 8h
 }
+
+# ─────────────────────────────────────────────────────────────
+# 2b.  LOAD ADMIN OVERRIDES, IF ANY
+#      config/category_policy.json is written by the admin panel's
+#      Categories page (admin_panel/category_editor.py). Never required —
+#      a missing or broken file just means "use the built-in defaults",
+#      exactly like this project behaved before this file existed.
+# ─────────────────────────────────────────────────────────────
+def _load_policy() -> tuple[dict[str, list[str]], dict[str, float]]:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    policy_path = os.path.join(project_root, "config", "category_policy.json")
+
+    if not os.path.exists(policy_path):
+        return dict(_DEFAULT_CATEGORY_MATRICES), dict(_DEFAULT_DURATION_RULES)
+
+    try:
+        with open(policy_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        matrices: dict[str, list[str]] = {}
+        rules: dict[str, float] = {}
+        for cat in data["categories"]:
+            name = cat["name"]
+            matrices[name] = [str(k).strip().lower() for k in cat.get("keywords", []) if str(k).strip()]
+            rules[name] = float(cat.get("min_hours", 8.0))
+
+        if not matrices:
+            raise ValueError("category_policy.json has zero categories")
+
+        rules["other"] = float(data.get("other_min_hours", 8.0))
+        return matrices, rules
+
+    except Exception as exc:
+        # A malformed edit must NEVER take the whole bot down — fall back
+        # to the safe built-in defaults and keep running. This prints once
+        # at import time (goes to the same log the rest of the bot uses)
+        # so the problem is visible without silently mis-enrolling courses.
+        print(f"[filter.py] WARNING: couldn't load {policy_path} ({exc}) — "
+              f"using built-in default categories instead.")
+        return dict(_DEFAULT_CATEGORY_MATRICES), dict(_DEFAULT_DURATION_RULES)
+
+
+CATEGORY_MATRICES, DURATION_RULES = _load_policy()
 
 # Badge families from the Udemy API that indicate high demand
 POPULAR_BADGES = {"bestseller", "hot_and_new", "highest_rated"}

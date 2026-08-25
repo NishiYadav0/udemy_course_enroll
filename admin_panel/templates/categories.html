@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Categories — ScholarSync Admin{% endblock %}
+{% block content %}
+
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i>
+  How a post gets classified: its text is checked against each category's keywords,
+  top to bottom — the first match wins. A course only gets enrolled if its duration
+  meets that category's minimum (or it carries a bestseller/hot-and-new badge, which
+  skips the duration check entirely). Changes here need a bot restart to take effect
+  — do that from the Dashboard afterwards.
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header"><i class="bi bi-tags"></i> Categories</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table mb-0 align-middle" style="min-width: 720px;">
+      <thead>
+        <tr>
+          <th style="width:16%">Name</th>
+          <th>Keywords</th>
+          <th style="width:14%">Min hours</th>
+          <th style="width:10%"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in categories %}
+        <tr>
+          <td class="font-monospace fw-semibold">{{ c.name }}</td>
+          <td>
+            <textarea class="form-control form-control-sm" name="keywords" form="update-{{ c.name }}" rows="2"
+                      style="min-width: 320px;">{{ c.keywords | join(', ') }}</textarea>
+          </td>
+          <td>
+            <input type="number" step="0.5" min="0" class="form-control form-control-sm"
+                   name="min_hours" form="update-{{ c.name }}" value="{{ c.min_hours }}">
+          </td>
+          <td class="text-nowrap">
+            <button type="submit" form="update-{{ c.name }}" class="btn btn-sm btn-outline-primary" title="Save">
+              <i class="bi bi-save"></i>
+            </button>
+            <button type="submit" form="delete-{{ c.name }}" class="btn btn-sm btn-outline-danger" title="Delete"
+                    onclick="return confirm('Delete the {{ c.name }} category? This cannot be undone.');">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- Per-row forms live here, outside the table (a <form> can't legally
+     wrap <tr>/<td> elements) — each row's inputs/buttons above point back
+     at these via the HTML5 form="..." attribute instead. -->
+{% for c in categories %}
+  <form id="update-{{ c.name }}" method="post" action="{{ url_for('categories_update', name=c.name) }}" class="d-none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  <form id="delete-{{ c.name }}" method="post" action="{{ url_for('categories_delete', name=c.name) }}" class="d-none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+{% endfor %}
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><i class="bi bi-plus-lg"></i> Add a new category</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('categories_add') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Category name</label>
+            <input type="text" class="form-control" name="name" placeholder="e.g. finance" pattern="[a-z][a-z0-9_]*" required>
+            <div class="form-text">Lowercase letters, numbers, underscores only — used internally and in logs.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Keywords</label>
+            <textarea class="form-control" name="keywords" rows="3" placeholder="stock market, investing, personal finance, trading" required></textarea>
+            <div class="form-text">Comma-separated or one per line — a post matches if it contains any of these.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Minimum duration (hours)</label>
+            <input type="number" step="0.5" min="0" class="form-control" name="min_hours" value="6" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i> Add category</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><i class="bi bi-signpost-2"></i> Fallback ("other")</div>
+      <div class="card-body">
+        <p class="text-muted small">
+          Minimum duration for any post that doesn't match a category above — it still
+          gets checked, just against this number instead of being dropped outright.
+        </p>
+        <form method="post" action="{{ url_for('categories_other') }}" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="number" step="0.5" min="0" class="form-control" name="other_min_hours" value="{{ other_min_hours }}">
+          <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="bi bi-save"></i> Save</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

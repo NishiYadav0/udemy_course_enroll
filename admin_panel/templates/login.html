@@ -3,7 +3,10 @@
 {% block content %}
 <div class="row g-0 sy-login-wrapper mx-n3 mx-md-n4 my-n4">
 
-  <div class="col-lg-6 sy-login-brand-panel d-none d-lg-flex">
+  <!-- Shown on every screen size (stacked on top below lg, side-by-side at
+       lg+) per explicit request — was previously d-none d-lg-flex (desktop
+       only) with a condensed logo standing in on mobile. -->
+  <div class="col-lg-6 sy-login-brand-panel d-flex">
     <div class="sy-brand-icon"><i class="bi bi-mortarboard-fill"></i></div>
     <h2 class="fw-bold mb-2">ScholarSync</h2>
     <p class="text-white-50 mb-0" style="max-width: 26rem;">
@@ -36,10 +39,6 @@
 
   <div class="col-lg-6 sy-login-form-panel">
     <div class="sy-login-card">
-      <div class="d-lg-none text-center mb-4">
-        <i class="bi bi-mortarboard-fill" style="font-size:2.2rem; color: var(--sy-accent);"></i>
-        <h4 class="mt-2 mb-0 fw-bold">ScholarSync</h4>
-      </div>
       <h4 class="fw-bold mb-1">Welcome back</h4>
       <p class="text-muted mb-4">Sign in to manage your bot.</p>
 
@@ -62,6 +61,14 @@
           <i class="bi bi-box-arrow-in-right"></i> Log in
         </button>
       </form>
+      {% endif %}
+
+      {% if not claimed %}
+        <div class="alert alert-info mt-4 mb-0">
+          <i class="bi bi-rocket-takeoff"></i> First time deploying this?
+          <a href="{{ url_for('setup_claim') }}" class="alert-link">Create your admin account</a>
+          to get started — no SSH needed.
+        </div>
       {% endif %}
 
       <p class="text-center text-muted small mt-4 mb-0">

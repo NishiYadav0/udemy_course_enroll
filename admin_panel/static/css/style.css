@@ -277,3 +277,29 @@ code {
   margin-top: 0.15rem;
   color: #9db2e8;
 }
+
+/* Below lg, the brand panel and the form panel stack vertically instead of
+   sitting side by side. A forced 100vh on the wrapper made sense for a
+   single side-by-side row but leaves an odd gap once there are two stacked
+   blocks, so let height follow content instead. Padding is also trimmed so
+   the brand panel doesn't push the actual login form too far down the
+   page on a phone screen. */
+@media (max-width: 991.98px) {
+  .sy-login-wrapper {
+    min-height: 0;
+  }
+  .sy-login-brand-panel {
+    padding: 2.5rem 1.75rem;
+    text-align: center;
+    align-items: center;
+  }
+  .sy-login-brand-panel p {
+    max-width: none !important;
+  }
+  .sy-feature-row {
+    text-align: left;
+  }
+  .sy-login-form-panel {
+    padding: 2.5rem 1.5rem 3rem;
+  }
+}

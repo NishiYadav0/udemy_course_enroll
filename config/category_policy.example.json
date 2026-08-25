@@ -1,0 +1,21 @@
+{
+  "_comment": "Template only — shows the shape of config/category_policy.json, which is generated automatically (seeded from utils/filter.py's built-in defaults) the first time you open the Categories page in the admin panel. Order matters: a post is checked against these top to bottom, first keyword match wins. Rename this file to category_policy.json and edit by hand only if you'd rather not use the panel.",
+  "categories": [
+    {
+      "name": "data_science",
+      "min_hours": 3.0,
+      "keywords": ["data science", "machine learning", "deep learning", "python", "pandas", "statistics"]
+    },
+    {
+      "name": "coding",
+      "min_hours": 3.0,
+      "keywords": ["javascript", "react", "web development", "full stack", "docker", "kubernetes"]
+    },
+    {
+      "name": "digital_marketing",
+      "min_hours": 6.0,
+      "keywords": ["digital marketing", "seo", "social media marketing", "google ads"]
+    }
+  ],
+  "other_min_hours": 8.0
+}

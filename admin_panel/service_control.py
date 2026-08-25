@@ -81,6 +81,16 @@ def restart(service: str) -> tuple[bool, str]:
     return _run(["sudo", "-n", SYSTEMCTL, "restart", service], timeout=20.0)
 
 
+def enable_and_start(service: str) -> tuple[bool, str]:
+    """First-ever launch only (setup wizard's final step) — 'restart' above
+    assumes the service is already enabled and just needs a bounce; a brand
+    new deploy needs it enabled (survive reboot) AND started for the first
+    time. Requires the two extra sudoers lines added alongside this."""
+    ok_enable, out_enable = _run(["sudo", "-n", SYSTEMCTL, "enable", service], timeout=10.0)
+    ok_start, out_start = _run(["sudo", "-n", SYSTEMCTL, "start", service], timeout=20.0)
+    return (ok_enable and ok_start), (out_enable + "\n" + out_start).strip()
+
+
 def process_memory_mb(pid: str) -> float | None:
     """RSS memory of the bot process in MB, or None if it can't be read."""
     if not pid or pid == "0":

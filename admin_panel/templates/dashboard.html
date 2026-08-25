@@ -2,7 +2,7 @@
 {% block title %}Dashboard — ScholarSync Admin{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-end align-items-center gap-3 mb-2 small text-muted">
+<div class="d-flex flex-wrap justify-content-end align-items-center gap-2 gap-sm-3 mb-2 small text-muted">
   <span id="syLastUpdated"></span>
   <div class="form-check form-switch mb-0">
     <input class="form-check-input" type="checkbox" role="switch" id="syAutoRefreshToggle">
@@ -25,12 +25,14 @@
             <i class="bi bi-circle-fill"></i> {{ state|upper }}
           </span>
           <div class="small text-muted mt-2">{{ service_name }}.service</div>
+          <div class="table-responsive">
           <table class="table table-sm mt-3 mb-0">
             <tr><td class="text-muted">Sub-state</td><td>{{ status.sub_state }}</td></tr>
             <tr><td class="text-muted">Active since</td><td>{{ status.since }}</td></tr>
             <tr><td class="text-muted">Main PID</td><td>{{ status.main_pid }}</td></tr>
             <tr><td class="text-muted">Restarts</td><td>{{ status.restarts }}</td></tr>
           </table>
+          </div>
         {% else %}
           <span class="badge bg-secondary fs-6">UNKNOWN</span>
           <div class="small text-danger mt-2">{{ status.error }}</div>

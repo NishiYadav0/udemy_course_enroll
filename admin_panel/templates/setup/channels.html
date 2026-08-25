@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Pick channels — Admin{% endblock %}
+{% block content %}
+
+<div class="row">
+  <div class="col-12 col-lg-7 mx-auto">
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-collection"></i> Step 2 &middot; Target channels</h5>
+        <p class="text-muted mb-3">
+          The channels ScholarSync should watch for coupon posts. Type an @username or paste a
+          t.me link &mdash; we'll look up its ID for you (you must already be a member).
+        </p>
+
+        <form method="post" class="d-flex gap-2 mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="add_target">
+          <input type="text" class="form-control" name="identifier" placeholder="@channelname or t.me/channelname" required>
+          <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="bi bi-plus-lg"></i> Add</button>
+        </form>
+
+        {% if targets %}
+          <ul class="list-group list-group-flush">
+            {% for t in targets %}
+              <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <span><i class="bi bi-hash"></i> {{ t.title }} <span class="text-muted small font-monospace">({{ t.id }})</span></span>
+                <form method="post" action="{{ url_for('setup_channels_remove', chat_id=t.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted small mb-0">No target channels added yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-bell"></i> Alert channel</h5>
+        <p class="text-muted mb-3">
+          Your own private channel or group where ScholarSync sends enrollment confirmations.
+          Create one in Telegram first if you don't have one yet, then type its name here.
+        </p>
+        <form method="post" class="d-flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="set_alert">
+          <input type="text" class="form-control" name="identifier" placeholder="@myalertschannel or t.me/..." required>
+          <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="bi bi-check-lg"></i> Set</button>
+        </form>
+        {% if alert %}
+          <div class="mt-3 small text-success"><i class="bi bi-check-circle-fill"></i> Currently set: {{ alert.title }} <span class="text-muted font-monospace">({{ alert.id }})</span></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <a href="{{ url_for('setup_udemy') }}" class="btn btn-primary w-100">
+      Continue to Udemy setup <i class="bi bi-arrow-right"></i>
+    </a>
+  </div>
+</div>
+{% endblock %}

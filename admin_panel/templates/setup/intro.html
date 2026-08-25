@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Set up ScholarSync — Admin{% endblock %}
+{% block content %}
+
+<div class="row">
+  <div class="col-12 col-lg-8 mx-auto">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h4 class="fw-bold mb-1"><i class="bi bi-rocket-takeoff"></i> Let's connect the bot</h4>
+        <p class="text-muted mb-4">Three quick steps — all from this browser, nothing over SSH.</p>
+
+        <div class="list-group list-group-flush mb-4">
+          <a href="{{ url_for('setup_telegram') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+            <div>
+              <div class="fw-semibold"><i class="bi bi-telegram me-1"></i> 1. Log in to Telegram</div>
+              <div class="small text-muted">Phone number &rarr; the code Telegram sends &rarr; done (2FA password only if you have one set).</div>
+            </div>
+            {% if telegram_done %}
+              <span class="badge bg-success">Done</span>
+            {% else %}
+              <span class="badge bg-secondary">Start</span>
+            {% endif %}
+          </a>
+          <a href="{{ url_for('setup_channels') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+            <div>
+              <div class="fw-semibold"><i class="bi bi-collection me-1"></i> 2. Pick channels</div>
+              <div class="small text-muted">Type the channel names you already know &mdash; we look up the numeric IDs for you.</div>
+            </div>
+            {% if channels_done %}
+              <span class="badge bg-success">Done</span>
+            {% elif telegram_done %}
+              <span class="badge bg-secondary">Start</span>
+            {% else %}
+              <span class="badge bg-light text-muted">Log in first</span>
+            {% endif %}
+          </a>
+          <a href="{{ url_for('setup_udemy') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+            <div>
+              <div class="fw-semibold"><i class="bi bi-mortarboard me-1"></i> 3. Add your Udemy account</div>
+              <div class="small text-muted">Paste a few cookie values from your browser &mdash; a one-time copy/paste, no coding.</div>
+            </div>
+            {% if udemy_done %}
+              <span class="badge bg-success">Done</span>
+            {% else %}
+              <span class="badge bg-secondary">Start</span>
+            {% endif %}
+          </a>
+        </div>
+
+        <a href="{{ url_for('setup_review') }}" class="btn btn-primary w-100">
+          <i class="bi bi-check2-circle"></i> Review &amp; launch
+        </a>
+        <p class="text-muted small text-center mt-3 mb-0">
+          You can leave and come back &mdash; progress here is kept for 30 minutes of inactivity.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

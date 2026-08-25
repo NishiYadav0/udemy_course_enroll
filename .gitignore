@@ -77,6 +77,14 @@ task.md
 # regenerates itself, and self-heals after 30 days)
 enrolled_courses.json
 
+# Admin-customized course categories (2026-08-25) — per-deploy personal
+# customization, same reasoning as .env: not secret, just specific to one
+# person's setup. config/category_policy.example.json (committed) shows
+# the shape; the real file is generated automatically the first time the
+# Categories page is opened, seeded from utils/filter.py's own defaults.
+config/category_policy.json
+config/category_policy.json.backup-*
+
 # ---- Admin panel (admin_panel/) ----
 # Nothing new to add here — the patterns above already cover it, since
 # gitignore patterns without a leading slash match at any depth:

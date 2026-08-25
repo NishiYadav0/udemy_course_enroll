@@ -14,7 +14,13 @@
   <div class="card-body">
     <form method="post" action="{{ url_for('env_update') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <table class="table align-middle">
+      <!-- table-responsive: on a phone-width screen a 3-column table with a
+           checkbox + text input in the last cell has no room to shrink into.
+           This scrolls the TABLE sideways within its own card instead of
+           breaking the whole page's layout — min-width keeps columns from
+           being squashed unreadably, the scrollbar just kicks in sooner. -->
+      <div class="table-responsive">
+      <table class="table align-middle" style="min-width: 560px;">
         <thead>
           <tr><th style="width:28%">Key</th><th style="width:22%">Current value</th><th>New value</th></tr>
         </thead>
@@ -38,6 +44,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       <button type="submit" class="btn btn-primary"
               onclick="return confirm('Save the checked changes? Remember to restart the service afterwards.');">
         <i class="bi bi-save"></i> Save changes

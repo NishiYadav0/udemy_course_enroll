@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Review &amp; launch — Admin{% endblock %}
+{% block content %}
+
+<div class="row">
+  <div class="col-12 col-lg-7 mx-auto">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-1"><i class="bi bi-check2-circle"></i> Review &amp; launch</h5>
+        <p class="text-muted mb-4">Nothing is written yet &mdash; confirm below and this becomes the bot's live .env, then the service starts.</p>
+
+        <div class="table-responsive mb-4">
+        <table class="table table-sm">
+          <tr>
+            <td class="text-muted" style="width:40%">Telegram account</td>
+            <td>
+              {% if tg_name %}
+                <i class="bi bi-check-circle-fill text-success"></i> {{ tg_name }} ({{ phone }})
+              {% else %}
+                <span class="text-danger"><i class="bi bi-x-circle"></i> Not logged in yet</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted">Target channels</td>
+            <td>
+              {% if targets %}
+                {% for t in targets %}<span class="badge bg-secondary me-1">{{ t.title }}</span>{% endfor %}
+              {% else %}
+                <span class="text-danger"><i class="bi bi-x-circle"></i> None added</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted">Alert channel</td>
+            <td>
+              {% if alert %}
+                <i class="bi bi-check-circle-fill text-success"></i> {{ alert.title }}
+              {% else %}
+                <span class="text-danger"><i class="bi bi-x-circle"></i> Not set</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted">Udemy account</td>
+            <td>
+              {% if udemy %}
+                <i class="bi bi-check-circle-fill text-success"></i> Cookies saved (masked &mdash; not shown here)
+              {% else %}
+                <span class="text-danger"><i class="bi bi-x-circle"></i> Not added</span>
+              {% endif %}
+            </td>
+          </tr>
+        </table>
+        </div>
+
+        {% if not (targets and alert and udemy and tg_name) %}
+          <div class="alert alert-warning small">
+            <i class="bi bi-exclamation-triangle"></i> Something's still missing above &mdash;
+            go back to <a href="{{ url_for('setup_intro') }}">Setup</a> and finish every step first.
+          </div>
+        {% else %}
+          <form method="post" onsubmit="return confirm('Write the .env and start the bot now?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-rocket-takeoff"></i> Write config &amp; launch the bot
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

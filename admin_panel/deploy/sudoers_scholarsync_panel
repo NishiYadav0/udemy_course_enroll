@@ -22,3 +22,9 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl status scholarsync
 ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl is-active scholarsync
 ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart scholarsync
 ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl show scholarsync
+
+# Added for the first-run setup wizard's final "Launch" step (2026-08-25) —
+# a brand new deploy has never been enabled or started before, so restart
+# alone isn't enough the very first time.
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl enable scholarsync
+ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl start scholarsync

@@ -12,7 +12,8 @@
 <div class="card shadow-sm">
   <div class="card-header"><i class="bi bi-archive"></i> Available archives</div>
   <div class="card-body p-0">
-    <table class="table mb-0">
+    <div class="table-responsive">
+    <table class="table mb-0" style="min-width: 640px;">
       <thead>
         <tr>
           <th>File</th>
@@ -54,6 +55,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}
