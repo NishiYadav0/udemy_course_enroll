@@ -118,10 +118,12 @@ ALERT_CHANNEL_ID = int(_require_env("ALERT_CHANNEL_ID"))
 # why fast polling isn't appropriate for these sites.
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "240"))
 
+_session_str = os.getenv("SESSION_STRING") or os.getenv("TELEGRAM_SESSION_STRING")
 app = Client(
-    name="scholarsync_session",
-    api_id=API_ID,
-    api_hash=API_HASH,
+    name           = "scholarsync_session",
+    api_id         = API_ID,
+    api_hash       = API_HASH,
+    session_string = _session_str if _session_str else None,
 )
 
 # Track whether a token-expiry alert was already sent this session

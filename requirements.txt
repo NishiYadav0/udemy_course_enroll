@@ -45,3 +45,7 @@ playwright-stealth>=2.0
 
 # Environment management
 python-dotenv
+
+# Web service and keep-alive server for Render (24/7/365 deployment)
+flask>=3.0
+gunicorn>=22.0

@@ -154,13 +154,15 @@ TARGET_CHANNELS: list[int] = [
 
 # ─────────────────────────────────────────────────────────────
 # Pyrogram client
-# Session file name: scholarsync_session.session
-# (stored in the project root — DO NOT commit to git)
+# Session file name: scholarsync_session.session OR SESSION_STRING env var
+# (stored in the project root or in environment variables)
 # ─────────────────────────────────────────────────────────────
+_session_str = os.getenv("SESSION_STRING") or os.getenv("TELEGRAM_SESSION_STRING")
 app = Client(
-    name    = "scholarsync_session",
-    api_id  = API_ID,
-    api_hash= API_HASH,
+    name           = "scholarsync_session",
+    api_id         = API_ID,
+    api_hash       = API_HASH,
+    session_string = _session_str if _session_str else None,
 )
 
 # Fast O(1) lookup set — used in the handler instead of filters.chat()
