@@ -45,13 +45,32 @@ BOT_STATUS = {
 }
 
 # Required environment check
-REQUIRED_KEYS = ["API_ID", "API_HASH", "ALERT_CHANNEL_ID", "UDEMY_ACCESS_TOKEN"]
-
-
 def check_missing_config():
-    missing = [k for k in REQUIRED_KEYS if not os.getenv(k)]
-    if os.getenv("RUN_MODE", "poller").lower() == "listener" and not os.getenv("TARGET_CHANNELS"):
-        missing.append("TARGET_CHANNELS")
+    missing = []
+    if not os.getenv("UDEMY_ACCESS_TOKEN"):
+        missing.append("UDEMY_ACCESS_TOKEN")
+
+    has_bot_token = bool(os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN"))
+    has_api = bool(os.getenv("API_ID") and os.getenv("API_HASH"))
+    has_session = bool(os.getenv("SESSION_STRING") or os.getenv("TELEGRAM_SESSION_STRING") or os.path.exists("scholarsync_session.session"))
+
+    mode = os.getenv("RUN_MODE", "poller").lower()
+
+    if mode == "listener":
+        if not has_api:
+            missing.append("API_ID, API_HASH")
+        if not has_session:
+            missing.append("SESSION_STRING")
+        if not os.getenv("TARGET_CHANNELS"):
+            missing.append("TARGET_CHANNELS")
+    else:
+        # Poller mode: only needs BOT_TOKEN (or API_ID/HASH/SESSION) to send alerts
+        if not has_bot_token and not (has_api and has_session):
+            missing.append("BOT_TOKEN (or API_ID + API_HASH + SESSION_STRING)")
+
+    if not os.getenv("ALERT_CHANNEL_ID"):
+        missing.append("ALERT_CHANNEL_ID")
+
     return missing
 
 

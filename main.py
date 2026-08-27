@@ -158,11 +158,15 @@ TARGET_CHANNELS: list[int] = [
 # (stored in the project root or in environment variables)
 # ─────────────────────────────────────────────────────────────
 _session_str = os.getenv("SESSION_STRING") or os.getenv("TELEGRAM_SESSION_STRING")
+if not _session_str and not os.path.exists("scholarsync_session.session"):
+    logger.warning("No session file or SESSION_STRING found! Telegram userbot listening requires SESSION_STRING on cloud.")
+
 app = Client(
     name           = "scholarsync_session",
     api_id         = API_ID,
     api_hash       = API_HASH,
     session_string = _session_str if _session_str else None,
+    in_memory      = True if _session_str else False,
 )
 
 # Fast O(1) lookup set — used in the handler instead of filters.chat()
